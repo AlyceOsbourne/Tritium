@@ -9,9 +9,13 @@ func _ready() -> void:
 
 func _on_code_edit_strerr(string: String) -> void:
     append_text("[color=RED]%s[/color]" % string)
+    if string.contains("eggs/cthulhu"):
+        push_font(load("res://tritium/editor/Dignity of Labour.otf"), 24)
 
 func _on_code_edit_stdout(string: String) -> void:
     append_text(str(string))
+    if string.contains("eggs/cthulhu"):
+        push_font(load("res://tritium/editor/Dignity of Labour.otf"), 24)
 
 func _on_code_edit_started() -> void:
     clear()

@@ -4,18 +4,22 @@ class_name Tritium
 @export var settings: InterpreterSettings = InterpreterSettings.new()
 
 signal started
+signal tokens(array: Array)
+signal ast(ast: TritiumData.ASTNode)
+signal meta(data: Dictionary)
 signal stdout(string: String)
 signal stderr(string: String)
-signal complete(result)
+signal complete(result: TritiumData)
 
 func evaluate(
         code: String,
         meta_data={},
     ):
 
-
     var lexed = Lexer.tokenize(code)
+    tokens.emit(lexed)
     var parsed = AST.parse(lexed)
+    ast.emit(parsed)
     var _settings: InterpreterSettings = settings.duplicate(true)
 
     for k in get_meta_list():
@@ -26,7 +30,6 @@ func evaluate(
 
     _settings.bind_function("print", func(x="", y = "\n"): stdout.emit(str(x) + y))
     _settings.bind_function("printerr", func(x="", y = "\n"): stderr.emit(str(x) + y))
-
     _settings.bind_property("globals", func():
         var funcs: Array[String] = _settings.bound_functions.keys()
         var properties: Array[String] = _settings.bound_properties.keys()
@@ -40,6 +43,8 @@ func evaluate(
             globals_dict[prop] = true
         for variable in variables:
             globals_dict[variable] = true
+        for k in meta_data:
+            globals_dict[k] = true
 
         var globals: Array[String]
         globals.assign(globals_dict.keys()  )
@@ -47,8 +52,11 @@ func evaluate(
         return "\n".join(globals)
     )
 
-    _settings.bind_property("meta_data", func(): return "\n".join(meta_data.keys()))
+    settings.bind_function("store", set_meta)
+    settings.bind_function("load", get_meta)
+    settings.bind_function("storage", get_meta_list)
 
+    meta.emit(meta_data)
 
     started.emit()
 
@@ -61,3 +69,4 @@ func evaluate(
     else:
         stdout.emit("Ran without error.")
     complete.emit(result)
+    return result

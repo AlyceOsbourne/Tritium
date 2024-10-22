@@ -42,6 +42,8 @@ func visit(node: TritiumData.ASTNode) -> TritiumData.InterpreterResult:
         return visit_if(node)
     elif node is TritiumData.StringNode:
         return visit_string(node)
+    elif node is TritiumData.AttributeAccessNode:
+        return visit_attribute_access(node)
     else:
         return Interpreter.error("Unsupported TritiumData node type: %s" % node)
 
@@ -149,7 +151,7 @@ func visit_comparison(node: TritiumData.ComparisonNode) -> TritiumData.Interpret
 
     if node.comparison_token.value == "==":
         return Interpreter.success(left == right)
-    elif node.comparison_token.value == "!=":
+    elif node.comparison_token.value == "!=" :
         return Interpreter.success(left != right)
     elif node.comparison_token.value == "<":
         return Interpreter.success(left < right)
@@ -184,6 +186,79 @@ func visit_if(node: TritiumData.IfNode) -> TritiumData.InterpreterResult:
         return visit(node.else_case)
 
     return Interpreter.success(null)
+
+func visit_attribute_access(node: TritiumData.AttributeAccessNode) -> TritiumData.InterpreterResult:
+    var left_result = visit(node.left)
+    if left_result.is_error():
+        return left_result
+
+    var left_value = left_result.value
+    var attribute_name = node.right.var_name.value
+
+    if typeof(left_value) in [TYPE_OBJECT]:
+        if left_value.has_method(attribute_name):
+            return Interpreter.success(left_value.call(attribute_name))
+        elif attribute_name in left_value:
+            return Interpreter.success(left_value.get(attribute_name))
+        else:
+            return Interpreter.error("Undefined attribute: %s" % attribute_name)
+
+    match typeof(left_value):
+        TYPE_DICTIONARY:
+            if attribute_name in left_value:
+                return Interpreter.success(left_value[attribute_name])
+        TYPE_ARRAY:
+            if attribute_name == "size":
+                return Interpreter.success(left_value.size())
+        TYPE_VECTOR2, TYPE_VECTOR2I:
+            match attribute_name:
+                "x": return Interpreter.success(left_value.x)
+                "y": return Interpreter.success(left_value.y)
+        TYPE_VECTOR3, TYPE_VECTOR3I:
+            match attribute_name:
+                "x": return Interpreter.success(left_value.x)
+                "y": return Interpreter.success(left_value.y)
+                "z": return Interpreter.success(left_value.z)
+        TYPE_RECT2, TYPE_RECT2I:
+            match attribute_name:
+                "position": return Interpreter.success(left_value.position)
+                "size": return Interpreter.success(left_value.size)
+        TYPE_TRANSFORM2D:
+            match attribute_name:
+                "x": return Interpreter.success(left_value.x)
+                "y": return Interpreter.success(left_value.y)
+                "origin": return Interpreter.success(left_value.origin)
+        TYPE_COLOR:
+            match attribute_name:
+                "r": return Interpreter.success(left_value.r)
+                "g": return Interpreter.success(left_value.g)
+                "b": return Interpreter.success(left_value.b)
+                "a": return Interpreter.success(left_value.a)
+        TYPE_QUATERNION:
+            match attribute_name:
+                "x": return Interpreter.success(left_value.x)
+                "y": return Interpreter.success(left_value.y)
+                "z": return Interpreter.success(left_value.z)
+                "w": return Interpreter.success(left_value.w)
+        TYPE_TRANSFORM2D:
+            match attribute_name:
+                "basis": return Interpreter.success(left_value.basis)
+                "origin": return Interpreter.success(left_value.origin)
+        TYPE_AABB:
+            match attribute_name:
+                "position": return Interpreter.success(left_value.position)
+                "size": return Interpreter.success(left_value.size)
+        TYPE_PLANE:
+            match attribute_name:
+                "normal": return Interpreter.success(left_value.normal)
+                "d": return Interpreter.success(left_value.d)
+        TYPE_RID:
+            if attribute_name == "id":
+                return Interpreter.success(left_value.get_id())
+        _:
+            return Interpreter.error("Unsupported attribute access for type: %s" % type_string(typeof(left_value)))
+
+    return Interpreter.error("Undefined attribute: %s" % attribute_name)
 
 func execute_function(function_def: TritiumData.FunctionDefNode, local_scope: Dictionary) -> TritiumData.InterpreterResult:
     var old_global_scope = global_scope

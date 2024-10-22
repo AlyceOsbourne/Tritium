@@ -17,6 +17,12 @@ func _init() -> void:
     set_text("""# Mecha boot script
 
 fn main(){
+    help()
+    systems_check()
+    return OK;
+}
+
+fn help() {
     print("Tritium V" + str(VERSION))
     print()
 
@@ -27,14 +33,6 @@ fn main(){
     print("Available Globals:")
     print(globals)
     print()
-
-    print("Available Metadata:")
-    print(meta_data)
-    print()
-
-    systems_check()
-
-    return OK;
 }
 
 fn systems_check() {
@@ -50,5 +48,10 @@ fn systems_check() {
     print()
 }""")
 
+    fold_all_lines()
+
 func _ready() -> void:
-    refresh.call_deferred()
+    editable = false
+    await get_tree().create_timer(6).timeout
+    refresh()
+    set_deferred(&"editable", true)

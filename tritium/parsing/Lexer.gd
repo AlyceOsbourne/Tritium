@@ -1,10 +1,5 @@
 class_name Lexer
 
-enum TokenType {
-    INT, FLOAT, OPERATOR, PAREN, IDENTIFIER, ASSIGNMENT, RETURN, SEMICOLON,
-    FN, COMMA, CURLY_OPEN, CURLY_CLOSE, COMMENT, EOF, COMPARISON, IF, ELIF, ELSE, STRING
-}
-
 #
 #x = 10;
 #y = 20;
@@ -31,6 +26,11 @@ static func tokenize(code: String) -> Array:
 
     while current < code.length():
         var char = code[current]
+
+        if char == ".":
+            current += 1
+            tokens.append(TritiumData.Token.new(TritiumData.TokenType.DOT, char, line))
+            continue
 
         if is_string(char):
             var result = handle_string(code, current, line)

@@ -112,7 +112,6 @@ class Parser:
                 self.advance()
             return res.success(node)
 
-
     func if_statement() -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
 
@@ -270,7 +269,6 @@ class Parser:
         return res.success(TritiumData.ReturnNode.new(expr))
 
     func expression() -> TritiumData.ParseResult:
-        # Handles logical operators ('and', 'or')
         var res = TritiumData.ParseResult.new()
         var left = res.register(self.comparison())
         if res.error:
@@ -363,11 +361,43 @@ class Parser:
             return res.success(TritiumData.StringNode.new(token))
         elif token.type == TritiumData.TokenType.IDENTIFIER:
             self.advance()
+            var node: TritiumData.ASTNode
             if self.current_token.type == TritiumData.TokenType.PAREN and self.current_token.value == "(":
-                return self.function_call(token)
-            return res.success(TritiumData.VarAccessNode.new(token))
+                node = res.register(self.function_call(token))
+            else:
+                node = TritiumData.VarAccessNode.new(token)
+
+            # Handle attribute access if there's a DOT
+            while self.current_token.type == TritiumData.TokenType.DOT:
+                self.advance()
+                node = res.register(self.attribute_access(node))
+                if res.error:
+                    return res
+
+            return res.success(node)
 
         return res.failure(TritiumData.InvalidSyntaxError.new(token.line, "Unexpected token '%s'" % token.value))
+
+
+    func attribute_access(left: TritiumData.ASTNode) -> TritiumData.ParseResult:
+        var res = TritiumData.ParseResult.new()
+
+        if self.current_token.type != TritiumData.TokenType.IDENTIFIER:
+            return res.failure(TritiumData.InvalidSyntaxError.new(self.current_token.line, "Expected identifier after '.'"))
+
+        var attribute_name = self.current_token
+        self.advance()
+
+        # Check if the attribute is a function call
+        if self.current_token.type == TritiumData.TokenType.PAREN and self.current_token.value == "(":
+            var function_call_node = res.register(self.function_call(attribute_name))
+            if res.error:
+                return res
+            return res.success(TritiumData.AttributeAccessNode.new(left, function_call_node))
+
+        # Otherwise, it's a simple attribute access
+        return res.success(TritiumData.AttributeAccessNode.new(left, TritiumData.VarAccessNode.new(attribute_name)))
+
 
 static func parse(tokens: Array) -> TritiumData.ParseResult:
     var parser = Parser.new(tokens)

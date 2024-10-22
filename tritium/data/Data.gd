@@ -1,7 +1,7 @@
 class_name TritiumData
 
 enum TokenType {
-    INT, FLOAT, OPERATOR, PAREN, IDENTIFIER, ASSIGNMENT, RETURN, SEMICOLON,
+    INT, FLOAT, OPERATOR, PAREN, IDENTIFIER, ASSIGNMENT, RETURN, SEMICOLON, DOT,
     FN, COMMA, CURLY_OPEN, CURLY_CLOSE, COMMENT, EOF, COMPARISON, IF, ELIF, ELSE, STRING
 }
 
@@ -232,6 +232,24 @@ class IfNode extends ASTNode:
         self.body = body
         self.elif_cases = elif_cases
         self.else_case = else_case
+
+class AttributeAccessNode extends ASTNode:
+    func _to_string() -> String:
+        return "%s %s %s" % [self.left._to_string(), ".", self.right._to_string()]
+
+    func to_dict() -> Dictionary:
+        return {
+            "type": "AttributeAccess",
+            "left": self.left.to_dict(),
+            "right": self.right.to_dict()
+        }
+
+    var left: ASTNode
+    var right: ASTNode
+
+    func _init(left: ASTNode, right: ASTNode):
+        self.left = left
+        self.right = right
 
 class InvalidSyntaxError extends ASTNode:
     func _to_string() -> String:

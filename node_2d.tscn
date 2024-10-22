@@ -1,0 +1,71 @@
+[gd_scene load_steps=8 format=3 uid="uid://upss0odd8gdw"]
+
+[ext_resource type="Script" path="res://Mech.gd" id="1_gyxnm"]
+[ext_resource type="Texture2D" uid="uid://cv7vp2u4cld80" path="res://tritium/art/TritiumLogoSmall.png" id="2_4n15j"]
+[ext_resource type="Script" path="res://tritium/execution/Tritium.gd" id="2_s7q48"]
+
+[sub_resource type="Resource" id="Resource_wdg1g"]
+script = ExtResource("2_s7q48")
+
+[sub_resource type="ConvexPolygonShape2D" id="ConvexPolygonShape2D_ufcsn"]
+points = PackedVector2Array(0, 40, -45, 90, 45, 90)
+
+[sub_resource type="GDScript" id="GDScript_n7t31"]
+script/source = "extends Area2D
+
+func _process(delta: float) -> void:
+    global_position = get_global_mouse_position()
+"
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_p2ush"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="Mech" type="Node2D" parent="." node_paths=PackedStringArray("camera", "thinker")]
+position = Vector2(579, 324)
+script = ExtResource("1_gyxnm")
+mech_code = "import(\"math\")
+fn main(){
+	move(DOWN / 2)
+	turn(LEFT + UP)
+	return camera();
+}"
+camera = NodePath("ShapeCast2D")
+thinker = NodePath("../CanvasLayer/Label")
+tritium = SubResource("Resource_wdg1g")
+
+[node name="TritiumLogoSmall" type="Sprite2D" parent="Mech"]
+scale = Vector2(0.1, 0.1)
+texture = ExtResource("2_4n15j")
+
+[node name="ShapeCast2D" type="ShapeCast2D" parent="Mech"]
+shape = SubResource("ConvexPolygonShape2D_ufcsn")
+collide_with_areas = true
+
+[node name="Area2D" type="Area2D" parent="."]
+position = Vector2(2, 87)
+script = SubResource("GDScript_n7t31")
+metadata/_edit_group_ = true
+metadata/camera_details = {
+"Name": "Assistance Drone",
+"hostile": false
+}
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+shape = SubResource("CapsuleShape2D_p2ush")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Label" type="RichTextLabel" parent="CanvasLayer"]
+custom_minimum_size = Vector2(200, 120)
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -100.0
+offset_right = 100.0
+offset_bottom = 120.0
+grow_horizontal = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+bbcode_enabled = true
+text = "Testing 123"

@@ -1,4 +1,4 @@
-[gd_scene load_steps=38 format=4 uid="uid://dlkh6577o2ap4"]
+[gd_scene load_steps=32 format=4 uid="uid://dlkh6577o2ap4"]
 
 [ext_resource type="Shader" path="res://tritium/shader/phosphor.gdshader" id="1_yo06q"]
 [ext_resource type="Script" path="res://tritium/editor/TritiumCodeEditor.gd" id="2_jdm2h"]
@@ -270,21 +270,10 @@ settings = SubResource("Resource_h5shx")
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_pticc"]
 
 [sub_resource type="StyleBoxLine" id="StyleBoxLine_xgimg"]
-content_margin_left = 5.0
-content_margin_top = 5.0
-content_margin_right = 5.0
-content_margin_bottom = 5.0
-color = Color(0.909804, 0, 0, 1)
-grow_end = 3.0
-thickness = 3
 
 [sub_resource type="StyleBoxLine" id="StyleBoxLine_4y0k4"]
 
 [sub_resource type="StyleBoxLine" id="StyleBoxLine_gsd8k"]
-content_margin_left = 5.0
-content_margin_top = 5.0
-content_margin_right = 5.0
-content_margin_bottom = 5.0
 
 [sub_resource type="StyleBoxLine" id="StyleBoxLine_qayaw"]
 content_margin_left = 30.0
@@ -295,133 +284,6 @@ color = Color(0.737255, 0, 0, 1)
 grow_begin = 3.0
 grow_end = 3.0
 thickness = 3
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_nlode"]
-
-[sub_resource type="GDScript" id="GDScript_qlw2d"]
-script/source = "extends Tree
-
-@export var editor: TritiumCodeEditor
-
-func _ready() -> void:
-    columns = 2
-    set_column_title(0, \"Line\")
-    set_column_title(1, \"Token\")
-
-    editor.tritium.tokens.connect(
-        func(tokens):
-            clear()
-            var root = create_item()
-            var previous_line = -1
-            var current_line_item = null
-
-            for tok in tokens:
-                if tok.line != previous_line:
-                    current_line_item = create_item(root)
-                    current_line_item.set_text(0, \"Line %s:\" % tok.line)
-                    previous_line = tok.line
-                else:
-                    current_line_item = create_item(current_line_item)
-                    current_line_item.set_text(0, \"%s(%s)\" % [
-                        TritiumData.TokenType.find_key(tok.type),
-                        str(tok.value),
-                    ])
-    )
-"
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_4psg3"]
-
-[sub_resource type="GDScript" id="GDScript_y4xmb"]
-script/source = "extends Tree
-
-@export var editor: TritiumCodeEditor
-
-func _ready() -> void:
-    columns = 2
-    set_column_title(0, \"Key\")
-    set_column_title(1, \"Value\")
-    editor.tritium.ast.connect(
-        func(ast: TritiumData.ParseResult):
-            clear()
-            var root = create_item()
-            if not ast.error:
-                var res = inst_to_dict(ast.node)
-                build_tree(root, res)
-
-    )
-
-func build_tree(parent: TreeItem, data_dict: Dictionary):
-    for k: String in data_dict:
-        if k.begins_with(\"@\"):
-            continue
-        var child = create_item(parent)
-        child.set_text(0, k)
-        var data = data_dict[k]
-        write(parent, child, data)
-
-func write(parent, child, data):
-    if data is Dictionary:
-        build_tree(parent, data)
-    elif data is Array:
-        build_list_array(child, data)
-    elif data is TritiumData.ASTNode:
-        build_tree(parent, inst_to_dict(data))
-    else:
-        child.set_text(1, str(data))
-
-func build_list_array(parent: TreeItem, data_array: Array):
-    parent = create_item(parent)
-    parent.set_text(0, \"[]:\")
-    for i in data_array.size():
-        var child = create_item(parent)
-        child.set_text(0, str(i))
-        var data = data_array[i]
-        write(parent, child, data)
-"
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cembv"]
-
-[sub_resource type="GDScript" id="GDScript_3jbon"]
-script/source = "extends Tree
-
-@export var editor: TritiumCodeEditor
-
-func _ready() -> void:
-    columns = 2
-    set_column_title(0, \"Key\")
-    set_column_title(1, \"Value\")
-    editor.tritium.meta.connect(
-        func(data: Dictionary):
-            clear()
-            var root = create_item()
-            build_tree(root, data)
-
-    )
-
-func build_tree(parent: TreeItem, data_dict: Dictionary):
-    for k: String in data_dict:
-        if k.begins_with(\"@\"):
-            continue
-        var child = create_item(parent)
-        child.set_text(0, k)
-        var data = data_dict[k]
-        write(parent, child, data)
-
-func write(parent: TreeItem, child: TreeItem, data: Variant):
-    if data is Dictionary:
-        build_tree(parent, data)
-    elif data is Array:
-        build_list_array(child, data)
-    else:
-        child.set_text(1, str(data))
-
-func build_list_array(parent: TreeItem, data_array: Array):
-    for i in data_array.size():
-        var child = create_item(parent)
-        child.set_text(0, str(i))
-        var data = data_array[i]
-        write(parent, child, data)
-"
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_lih8u"]
 shader = ExtResource("6_hdga7")
@@ -510,7 +372,6 @@ use_parent_material = true
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/autohide = 0
-split_offset = 200
 drag_area_margin_begin = 500
 drag_area_margin_end = 500
 drag_area_offset = 1
@@ -549,10 +410,7 @@ metadata/mech_position = Vector2i(0, 0)
 metadata/mech_health = 1
 
 [node name="ControlPanel" type="TabContainer" parent="Editor/HBoxContainer"]
-custom_minimum_size = Vector2(800, 0)
 layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/icon_separation = 30
 theme_override_font_sizes/font_size = 20
 theme_override_styles/tab_focus = SubResource("StyleBoxLine_ybanu")
 theme_override_styles/tab_disabled = SubResource("StyleBoxLine_par0l")
@@ -561,13 +419,9 @@ theme_override_styles/panel = SubResource("StyleBoxEmpty_pticc")
 theme_override_styles/tab_selected = SubResource("StyleBoxLine_xgimg")
 theme_override_styles/tab_hovered = SubResource("StyleBoxLine_4y0k4")
 theme_override_styles/tab_unselected = SubResource("StyleBoxLine_gsd8k")
-tab_alignment = 1
-current_tab = 3
-tabs_position = 1
+current_tab = 0
 
 [node name="Output" type="RichTextLabel" parent="Editor/HBoxContainer/ControlPanel" node_paths=PackedStringArray("editor")]
-visible = false
-clip_contents = false
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -580,44 +434,6 @@ context_menu_enabled = true
 script = ExtResource("5_it2rc")
 editor = NodePath("../../CodeEdit")
 metadata/_tab_index = 0
-
-[node name="Tokens" type="Tree" parent="Editor/HBoxContainer/ControlPanel" node_paths=PackedStringArray("editor")]
-visible = false
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxEmpty_nlode")
-hide_root = true
-select_mode = 2
-script = SubResource("GDScript_qlw2d")
-editor = NodePath("../../CodeEdit")
-metadata/_tab_index = 1
-
-[node name="AST" type="Tree" parent="Editor/HBoxContainer/ControlPanel" node_paths=PackedStringArray("editor")]
-visible = false
-clip_contents = false
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxEmpty_4psg3")
-hide_root = true
-select_mode = 1
-script = SubResource("GDScript_y4xmb")
-editor = NodePath("../../CodeEdit")
-metadata/_tab_index = 2
-
-[node name="Metadata" type="Tree" parent="Editor/HBoxContainer/ControlPanel" node_paths=PackedStringArray("editor")]
-layout_mode = 2
-theme_override_constants/draw_relationship_lines = 1
-theme_override_styles/panel = SubResource("StyleBoxEmpty_cembv")
-columns = 2
-hide_root = true
-select_mode = 1
-script = SubResource("GDScript_3jbon")
-editor = NodePath("../../CodeEdit")
-metadata/_tab_index = 3
-
-[node name="SubViewportContainer" type="SubViewportContainer" parent="Editor/HBoxContainer/ControlPanel"]
-visible = false
-custom_minimum_size = Vector2(100, 100)
-layout_mode = 2
-metadata/_tab_index = 4
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 1
