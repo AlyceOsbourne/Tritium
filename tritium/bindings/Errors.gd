@@ -25,9 +25,4 @@ static func bind(interpreter_settings: InterpreterSettings):
     interpreter_settings.bind_function("except", raise)
     interpreter_settings.bind_variable("OK", OK)
     interpreter_settings.bind_variable("FAIL", FAILED)
-
-    for k in ExceptionTypes:
-        interpreter_settings.bind_function(k, func(message: String = "An error has occurred"):
-            return raise(message, ExceptionTypes[k])
-        )
-        interpreter_settings.bind_variable(k, ExceptionTypes[k])
+    interpreter_settings.bind_variable("ExceptionType", ExceptionTypes)

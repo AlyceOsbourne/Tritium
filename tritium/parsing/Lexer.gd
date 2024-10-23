@@ -18,8 +18,8 @@ class_name Lexer
 #}
 
 
-static func tokenize(code: String) -> Array:
-    var tokens = []
+static func tokenize(code: String) -> TritiumData.LexerResult:
+    var tokens: Array[TritiumData.Token] = []
     var current = 0
     var line = 1
     var is_function_definition = false
@@ -111,10 +111,13 @@ static func tokenize(code: String) -> Array:
             var token = result[1]
             tokens.append(token)
             continue
+
+        return TritiumData.LexerResult.new(tokens, "Unknown token at line %d" % line, line)
+
         current += 1
 
     tokens.append(TritiumData.Token.new(TritiumData.TokenType.EOF, "", line))
-    return tokens
+    return TritiumData.LexerResult.new(tokens, "", line)
 
 static func is_whitespace(char: String) -> bool:
     return char == " " or char == "\t" or char == "\n"

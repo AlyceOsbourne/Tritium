@@ -1,6 +1,6 @@
-class_name ArrayUtils
-
 static func bind(interpreter_settings: InterpreterSettings):
+
+
     interpreter_settings.bind_function("append", func(array, value):
         array.append(value)
         return array

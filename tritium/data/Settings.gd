@@ -7,7 +7,8 @@ extends Resource
 
 @export var bound_modules: Array[GDScript] = [
     load("res://tritium/bindings/System.gd"),
-    load("res://tritium/bindings/Errors.gd")
+    load("res://tritium/bindings/Errors.gd"),
+    load("res://tritium/bindings/eggs/highlights.gd")
 ]:
     set(v):
         bound_modules = v

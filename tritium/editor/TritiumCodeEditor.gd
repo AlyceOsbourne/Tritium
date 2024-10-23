@@ -2,6 +2,7 @@ class_name TritiumCodeEditor
 extends CodeEdit
 
 @export var tritium: Tritium
+@export var mech_data: MechData
 
 func refresh(meta_data:={}):
     for k in get_meta_list():
@@ -17,41 +18,23 @@ func _init() -> void:
     set_text("""# Mecha boot script
 
 fn main(){
-    help()
     systems_check()
     return OK;
 }
 
-fn help() {
-    print("Tritium V" + str(VERSION))
-    print()
-
-    print("Available Modules:")
-    print(modules)
-    print()
-
-    print("Available Globals:")
-    print(globals)
-    print()
-}
-
 fn systems_check() {
-    print("Running checks for: " + mech_name)
-    assert(mech_health > 0, "Mech is destroyed.")
-    print("Mech Health: " + str(mech_health))
-    assert(mech_power > 0, "Mech is out of power.")
-    print("Mech Power: " + str(mech_power))
-
-    print("Mech Current Location: " + str(mech_position))
-
+    print("Running checks for: " + mech.name)
+    assert(mech.power, "Mech is out of power.")
+    assert(mech.integrity, "Mech requires urgent maintainence.")
+    assert(mech.temperature < 100, "Mech is overheated")
+    assert(mech.temperature > 0, "Mech is frozen")
     print("All Systems Nominal. Can proceed with mission.")
-    print()
 }""")
 
     fold_all_lines()
+    code_completion_enabled = true
 
 func _ready() -> void:
-    editable = false
-    await get_tree().create_timer(6).timeout
-    refresh()
-    set_deferred(&"editable", true)
+    mech_data._bind(tritium.settings)
+    mech_data.data_updated.connect(refresh)
+    refresh.call_deferred()

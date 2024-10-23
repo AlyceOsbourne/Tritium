@@ -1,5 +1,3 @@
-class_name nyan
-
 static func bind(interpreter_settings: InterpreterSettings):
     interpreter_settings.bind_function("except", func(x = null): return TritiumData.InterpreterResult.new(null, nyanify_string(str(x) if x else "An unknown error has occurred")))
     interpreter_settings.bind_function("assert", func(expression: bool, message: String = "Assertion failed"):

@@ -8,14 +8,14 @@ func _ready() -> void:
     editor.tritium.stderr.connect(_on_code_edit_strerr.call_deferred)
 
 func _on_code_edit_strerr(string: String) -> void:
-    append_text("[color=RED]%s[/color]" % string)
-    if string.contains("eggs/cthulhu"):
-        push_font(load("res://tritium/editor/Dignity of Labour.otf"), 24)
+    append_text("[color=RED][shake rate=20.0 level=5 connected=1]%s[/shake][/color]" % string)
 
 func _on_code_edit_stdout(string: String) -> void:
     append_text(str(string))
-    if string.contains("eggs/cthulhu"):
-        push_font(load("res://tritium/editor/Dignity of Labour.otf"), 24)
 
-func _on_code_edit_started() -> void:
+func _on_code_edit_started(code: String) -> void:
     clear()
+    if code.contains("import(\"eggs/cthulhu\")") or code.contains('import("eggs/cthulhu")'):
+        push_font(load("res://tritium/editor/Dignity of Labour.otf"), 24)
+    else:
+        push_font(load("res://tritium/editor/BPtypewrite.otf"), 24)
