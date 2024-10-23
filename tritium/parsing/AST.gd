@@ -146,7 +146,6 @@ class Parser:
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'if' body"))
         self.advance()  # Advance after '}'
 
-
         # Optional 'elif' and 'else' block handling
         var elif_cases: Array[Dictionary] = []
         while self.current_token.type == TritiumData.TokenType.ELIF:
@@ -181,7 +180,6 @@ class Parser:
             if self.current_token.type != TritiumData.TokenType.CURLY_CLOSE:
                 return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'if' body"))
             self.advance()  # Advance after '}'
-
 
             elif_cases.append({
                 "condition": elif_condition,
@@ -340,11 +338,17 @@ class Parser:
         return res.success(left)
 
     func factor() -> TritiumData.ParseResult:
-        # Handles literals, variables, parentheses, function calls
+        # Handles literals, variables, parentheses, function calls, and unary operations
         var res = TritiumData.ParseResult.new()
         var token = self.current_token
 
-        if token.type == TritiumData.TokenType.PAREN and token.value == "(":
+        if token.type == TritiumData.TokenType.OPERATOR and token.value in ["+", "-"]:
+            self.advance()
+            var operand = res.register(self.factor())
+            if res.error:
+                return res
+            return res.success(TritiumAST.UnaryOpNode.new(token, operand))
+        elif token.type == TritiumData.TokenType.PAREN and token.value == "(":
             self.advance()
             var expr = res.register(self.expression())
             if res.error:
@@ -378,7 +382,6 @@ class Parser:
 
         return res.failure(TritiumAST.InvalidSyntaxError.new(token.line, "Unexpected token '%s'" % token.value))
 
-
     func attribute_access(left: TritiumAST.ASTNode) -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
 
@@ -397,7 +400,6 @@ class Parser:
 
         # Otherwise, it's a simple attribute access
         return res.success(TritiumAST.AttributeAccessNode.new(left, TritiumAST.VarAccessNode.new(attribute_name)))
-
 
 static func parse(lexed_result: TritiumData.LexerResult) -> TritiumData.ParseResult:
     if lexed_result.error:

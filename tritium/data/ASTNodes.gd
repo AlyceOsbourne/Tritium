@@ -21,6 +21,25 @@ class FunctionCallNode extends ASTNode:
         self.func_name = func_name
         self.args = args
 
+class UnaryOpNode extends ASTNode:
+    func _init(op_token, operand):
+        self.op_token = op_token
+        self.operand = operand
+
+    func _to_string() -> String:
+        return "%s%s" % [self.op_token.value, self.operand._to_string()]
+
+    func to_dict() -> Dictionary:
+        return {
+            "type": "UnaryOpNode",
+            "op": self.op_token.value,
+            "operand": self.operand.to_dict()
+        }
+
+    var op_token: TritiumData.Token
+    var operand: ASTNode
+
+
 class BinOpNode extends ASTNode:
     func _to_string() -> String:
         return "%s %s %s" % [self.left._to_string(), self.op_token.value, self.right._to_string()]

@@ -25,11 +25,14 @@ fn main(){
 fn systems_check() {
     print("Running checks for: " + mech.name)
     assert(mech.power, "Mech is out of power.")
+    if (mech.power < 0.3) {printerr("Mech power low.")}
     assert(mech.integrity, "Mech requires urgent maintainence.")
-    assert(mech.temperature < 100, "Mech is overheated")
-    assert(mech.temperature > 0, "Mech is frozen")
+    if (mech.integrity < 0.3) {printerr("Mech integrity low.")}
+    assert(mech.temperature < 100, "Mech is overheated.")
+    assert(mech.temperature > 0, "Mech is frozen.")
     print("All Systems Nominal. Can proceed with mission.")
-}""")
+}
+""")
 
     fold_all_lines()
     code_completion_enabled = true

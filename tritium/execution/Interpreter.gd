@@ -17,7 +17,8 @@ var visitors = {
     (func(node): return node is TritiumAST.ComparisonNode): visit_bin_or_comparison,
     (func(node): return node is TritiumAST.IfNode): visit_if,
     (func(node): return node is TritiumAST.StringNode): visit_string,
-    (func(node): return node is TritiumAST.AttributeAccessNode): visit_attribute_access
+    (func(node): return node is TritiumAST.AttributeAccessNode): visit_attribute_access,
+    (func(node): return node is TritiumAST.UnaryOpNode): visit_unary_op
 }
 
 var ops = {
@@ -76,6 +77,14 @@ var ops = {
             return error("Type Error: Both operands must be numbers")
 }
 
+var unary_ops = {
+    "-": func(a):
+        if typeof(a) in [TYPE_INT, TYPE_FLOAT]:
+            return success(-a)
+        else:
+            return error("Type Error: Operand must be a number")
+}
+
 func visit(node: TritiumAST.ASTNode) -> TritiumData.InterpreterResult:
     for rule in visitors:
         if rule.call(node):
@@ -128,6 +137,16 @@ func visit_bin_or_comparison(node: TritiumAST.ASTNode) -> TritiumData.Interprete
 
 func apply_operator(operator: String, left: Variant, right: Variant) -> TritiumData.InterpreterResult:
     return ops.get(operator, func(__, ___): return error("Unsupported operator: %s" % operator)).call(left, right)
+
+func visit_unary_op(node: TritiumAST.UnaryOpNode) -> TritiumData.InterpreterResult:
+    var operand_result = visit(node.operand)
+    if operand_result.is_error():
+        return operand_result
+
+    return apply_unary_operator(node.op_token.value, operand_result.value)
+
+func apply_unary_operator(operator: String, operand: Variant) -> TritiumData.InterpreterResult:
+    return unary_ops.get(operator, func(__): return error("Unsupported unary operator: %s" % operator)).call(operand)
 
 func visit_assignment(node: TritiumAST.AssignmentNode) -> TritiumData.InterpreterResult:
     var value_result = visit(node.expr)

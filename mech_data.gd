@@ -28,7 +28,7 @@ func _set(property: StringName, value: Variant) -> bool:
 @export var ammo: Dictionary[AmmoType, int] = {}
 @export var temperature: float:
     set(v):
-        temperature = clamp(v, -50, 150)
+        temperature = clamp(v, 0, 150)
         data_updated.emit()
 
 @export var home_position: Vector2i = Vector2i.ZERO

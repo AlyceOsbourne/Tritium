@@ -83,6 +83,11 @@ static func tokenize(code: String) -> TritiumData.LexerResult:
             current += 1
             continue
 
+        if is_square_brace(char):
+            tokens.append(TritiumData.Token.new(TritiumData.TokenType.SQUARE_OPEN if char == "[" else TritiumData.TokenType.SQUARE_CLOSE, char, line))
+            current += 1
+            continue
+
         if is_assignment(char):
             tokens.append(TritiumData.Token.new(TritiumData.TokenType.ASSIGNMENT, char, line))
             current += 1
@@ -184,6 +189,9 @@ static func is_paren(char: String) -> bool:
 
 static func is_curly_brace(char: String) -> bool:
     return char in ["{", "}"]
+
+static func is_square_brace(char: String) -> bool:
+    return char in ["[", "]"]
 
 static func is_assignment(char: String) -> bool:
     return char == "="

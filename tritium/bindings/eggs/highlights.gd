@@ -1,5 +1,6 @@
+
 static func bind(interpreter_settings: InterpreterSettings):
-    interpreter_settings.bind_function("except", func(x = null): return TritiumData.InterpreterResult.new(null, highlight_string(str(x) if x else "An unknown error has occurred")))
+    interpreter_settings.bind_function("except", func(x = null  ): return TritiumData.InterpreterResult.new(null, highlight_string(str(x) if x else "An unknown error has occured")))
     interpreter_settings.bind_function("assert", func(expression: bool, message: String = "Assertion failed"):
         if not expression:
             push_error(message)
@@ -8,9 +9,7 @@ static func bind(interpreter_settings: InterpreterSettings):
     if _print:
         interpreter_settings.bind_function("print", func(x, y="\n"): return _print.call(highlight_string(str(x)), y))
 
-    var _printerr = interpreter_settings.bound_functions.get("printerr")
-    if _printerr:
-        interpreter_settings.bind_function("printerr", func(x, y="\n"): return _printerr.call(highlight_string(str(x)), y))
+
 
 
 static func highlight_string(text: String) -> String:
