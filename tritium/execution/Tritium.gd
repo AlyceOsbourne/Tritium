@@ -11,8 +11,11 @@ signal stdout(string: String)
 signal stderr(string: String)
 signal complete(result: TritiumData)
 
-func _init() -> void:
-    settings = settings.duplicate(true)
+var easter_eggs = {
+    func(mech): return uwu.uwucrew.has(mech.name): func(settings: InterpreterSettings): settings.bind_module(load("res://tritium/bindings/eggs/uwu.gd")),
+    func(mech): return godoblins.godoblins.has(mech.name): func(settings: InterpreterSettings): settings.bind_module(load("res://tritium/bindings/eggs/arr.gd")),
+    func(mech): return cthulhubots.cthulhucrew.has(mech.name): func(settings: InterpreterSettings): settings.bind_module(load("res://tritium/bindings/eggs/cthulhu.gd")),
+}
 
 func evaluate(
         code: String,
@@ -31,8 +34,8 @@ func evaluate(
     if has_method("bind"):
         _settings.bind_module(self)
 
-    _settings.bind_function("print", func(x="", y = "\n"): stdout.emit(str(x) + y))
-    _settings.bind_function("printerr", func(x="", y = "\n"): stderr.emit(str(x) + y))
+    _settings.bind_function("print", func(x="", y = "\n"): stdout.emit(str(x) + str(y)))
+    _settings.bind_function("printerr", func(x="", y = "\n"): stderr.emit(str(x) + str(y)))
     _settings.bind_property("globals", func():
         var funcs: Array[String] = _settings.bound_functions.keys()
         var properties: Array[String] = _settings.bound_properties.keys()
@@ -55,14 +58,19 @@ func evaluate(
         return "\n".join(globals)
     )
 
-    settings.bind_function("store", set_meta)
-    settings.bind_function("load", get_meta)
-    settings.bind_function("storage", get_meta_list)
-
+    _settings.bind_function("store", set_meta)
+    _settings.bind_function("load", get_meta)
+    _settings.bind_function("storage", get_meta_list)
 
     meta.emit(meta_data)
-
     started.emit(code)
+
+    if _settings.bound_variables.has("mech"):
+        var mech = settings.bound_variables["mech"]
+        for egg in easter_eggs:
+            if egg.call(mech):
+                print("Easter Egg Found: " + mech.name)
+                easter_eggs[egg].call(_settings)
 
     var result = Interpreter.interpret(parsed, _settings, meta_data)
 

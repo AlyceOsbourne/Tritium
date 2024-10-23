@@ -1,4 +1,4 @@
-[gd_scene load_steps=51 format=4 uid="uid://dlkh6577o2ap4"]
+[gd_scene load_steps=49 format=4 uid="uid://dlkh6577o2ap4"]
 
 [ext_resource type="Shader" path="res://tritium/shader/hexa.gdshader" id="1_yo06q"]
 [ext_resource type="Script" path="res://tritium/editor/TritiumCodeEditor.gd" id="2_jdm2h"]
@@ -454,56 +454,6 @@ func _ready() -> void:
     )
 "
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_4psg3"]
-
-[sub_resource type="GDScript" id="GDScript_y4xmb"]
-script/source = "extends Tree
-
-@export var editor: TritiumCodeEditor
-
-func _ready() -> void:
-    columns = 2
-    set_column_title(0, \"Key\")
-    set_column_title(1, \"Value\")
-    editor.tritium.ast.connect(
-        func(ast: TritiumData.ParseResult):
-            clear()
-            var root = create_item()
-            if not ast.error:
-                var res = inst_to_dict(ast.node)
-                build_tree(root, res)
-
-    )
-
-func build_tree(parent: TreeItem, data_dict: Dictionary):
-    for k: String in data_dict:
-        if k.begins_with(\"@\"):
-            continue
-        var child = create_item(parent)
-        child.set_text(0, k)
-        var data = data_dict[k]
-        write(parent, child, data)
-
-func write(parent, child, data):
-    if data is Dictionary:
-        build_tree(parent, data)
-    elif data is Array:
-        build_list_array(child, data)
-    elif data is TritiumAST.ASTNode:
-        build_tree(parent, inst_to_dict(data))
-    else:
-        child.set_text(1, str(data))
-
-func build_list_array(parent: TreeItem, data_array: Array):
-    parent = create_item(parent)
-    parent.set_text(0, \"[]:\")
-    for i in data_array.size():
-        var child = create_item(parent)
-        child.set_text(0, str(i))
-        var data = data_array[i]
-        write(parent, child, data)
-"
-
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cembv"]
 
 [sub_resource type="GDScript" id="GDScript_3jbon"]
@@ -705,6 +655,7 @@ custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+focus_mode = 2
 theme = SubResource("Theme_5qm47")
 theme_override_constants/line_separation = 15
 theme_override_fonts/normal_font = SubResource("FontFile_6m7oq")
@@ -714,6 +665,7 @@ theme_override_font_sizes/bold_font_size = 26
 bbcode_enabled = true
 scroll_following = true
 context_menu_enabled = true
+selection_enabled = true
 script = ExtResource("5_it2rc")
 editor = NodePath("../../CodeEdit")
 
@@ -737,18 +689,6 @@ script = SubResource("GDScript_qlw2d")
 editor = NodePath("../../../CodeEdit")
 metadata/_tab_index = 0
 
-[node name="AST" type="Tree" parent="Editor/HBoxContainer/VBoxContainer/ControlPanel" node_paths=PackedStringArray("editor")]
-visible = false
-clip_children = 2
-layout_mode = 2
-theme = SubResource("Theme_5qm47")
-theme_override_styles/panel = SubResource("StyleBoxEmpty_4psg3")
-hide_root = true
-select_mode = 1
-script = SubResource("GDScript_y4xmb")
-editor = NodePath("../../../CodeEdit")
-metadata/_tab_index = 1
-
 [node name="Metadata" type="Tree" parent="Editor/HBoxContainer/VBoxContainer/ControlPanel" node_paths=PackedStringArray("editor")]
 visible = false
 clip_children = 2
@@ -761,7 +701,7 @@ hide_root = true
 select_mode = 1
 script = SubResource("GDScript_3jbon")
 editor = NodePath("../../../CodeEdit")
-metadata/_tab_index = 2
+metadata/_tab_index = 1
 
 [node name="Debug Controls" type="FlowContainer" parent="Editor/HBoxContainer/VBoxContainer/ControlPanel" node_paths=PackedStringArray("editor", "power_slider", "intergrity_slider", "temperature_slider")]
 visible = false
@@ -773,7 +713,7 @@ editor = NodePath("../../../CodeEdit")
 power_slider = NodePath("Power/HSlider")
 intergrity_slider = NodePath("Integrity/HSlider")
 temperature_slider = NodePath("Temperature/HSlider")
-metadata/_tab_index = 3
+metadata/_tab_index = 2
 
 [node name="Power" type="HBoxContainer" parent="Editor/HBoxContainer/VBoxContainer/ControlPanel/Debug Controls"]
 layout_mode = 2

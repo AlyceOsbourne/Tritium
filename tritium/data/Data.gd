@@ -1,8 +1,9 @@
 class_name TritiumData
 
 enum TokenType {
+    INVALID,
     INT, FLOAT, OPERATOR, PAREN, IDENTIFIER, ASSIGNMENT, RETURN, SEMICOLON, DOT,
-    FN, COMMA, CURLY_OPEN, CURLY_CLOSE, COMMENT, EOF, COMPARISON, IF, ELIF, ELSE, STRING, SQUARE_OPEN, SQUARE_CLOSE, COLON
+    FN, COMMA, CURLY_OPEN, CURLY_CLOSE, COMMENT, EOF, COMPARISON, IF, ELIF, ELSE, STRING, SQUARE_OPEN, SQUARE_CLOSE, COLON, FOR, IN, BREAK, CONTINUE
 }
 
 class Token:
@@ -17,7 +18,6 @@ class Token:
 
     func _to_string() -> String:
         return "Line %d: %s: %s" % [self.line, TokenType.find_key(self.type), str(self.value)]
-
 
 class LexerResult:
     var tokens: Array[TritiumData.Token]

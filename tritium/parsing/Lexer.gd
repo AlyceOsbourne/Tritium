@@ -115,6 +115,28 @@ static func tokenize(code: String) -> TritiumData.LexerResult:
             tokens.append(token)
             continue
 
+        if is_for_loop_keyword(code, current):
+            var result = handle_for_loop_keyword(code, current, line)
+            current = result[0]
+            var token = result[1]
+            tokens.append(token)
+            continue
+
+            # Handle 'in' keyword in for loop
+        if is_in_keyword(code, current):
+            var result = handle_in_keyword(code, current, line)
+            current = result[0]
+            var token = result[1]
+            tokens.append(token)
+            continue
+
+        if is_break_or_continue_keyword(code, current):
+            var result = handle_break_or_continue_keyword(code, current, line)
+            current = result[0]
+            var token = result[1]
+            tokens.append(token)
+            continue
+
         if is_identifier_start(char):
             var result = handle_identifier_or_keyword(code, current, line, is_function_definition)
             current = result[0]
@@ -205,7 +227,7 @@ static func is_semicolon(char: String) -> bool:
     return char == ";"
 
 static func is_colon(char: String) -> bool:
-    return char == ";"
+    return char == ":"
 
 static func is_comma(char: String) -> bool:
     return char == ","
@@ -227,6 +249,14 @@ static func handle_identifier_or_keyword(code: String, current: int, line: int, 
         return [current, TritiumData.Token.new(TritiumData.TokenType.FN, identifier, line)]
     elif identifier == "return":
         return [current, TritiumData.Token.new(TritiumData.TokenType.RETURN, identifier, line)]
+    elif identifier == "for":
+        return [current, TritiumData.Token.new(TritiumData.TokenType.FOR, identifier, line)]
+    elif identifier == "in":
+        return [current, TritiumData.Token.new(TritiumData.TokenType.IN, identifier, line)]
+    elif identifier == "break":
+        return [current, TritiumData.Token.new(TritiumData.TokenType.BREAK, identifier, line)]
+    elif identifier == "continue":
+        return [current, TritiumData.Token.new(TritiumData.TokenType.CONTINUE, identifier, line)]
     else:
         return [current, TritiumData.Token.new(TritiumData.TokenType.IDENTIFIER, identifier, line)]
 
@@ -251,6 +281,47 @@ static func handle_if_else_keyword(code: String, current: int, line: int) -> Arr
         if code.substr(current, keyword.length()) == keyword:
             return [current + keyword.length(), TritiumData.Token.new(keywords[keyword], keyword, line)]
     return [current, null]
+
+static func is_for_loop_keyword(code: String, current: int) -> bool:
+    if current >= code.length():
+        return false
+
+    if current + 3 <= code.length() and code.substr(current, 3) == "for" and not code[current + 3].is_valid_ascii_identifier():
+        return true
+    return false
+
+static func handle_for_loop_keyword(code: String, current: int, line: int) -> Array:
+    return [current + 3, TritiumData.Token.new(TritiumData.TokenType.FOR, "for", line)]
+
+static func is_in_keyword(code: String, current: int) -> bool:
+    if current + 2 <= code.length() and code.substr(current, 2) == "in" and not code[current + 2].is_valid_ascii_identifier():
+        return true
+    return false
+
+static func handle_in_keyword(code: String, current: int, line: int) -> Array:
+    return [current + 2, TritiumData.Token.new(TritiumData.TokenType.IN, "in", line)]
+
+static func is_break_or_continue_keyword(code: String, current: int) -> bool:
+    if current >= code.length():
+        return false
+
+    var keywords = ["break", "continue"]
+    for keyword in keywords:
+        if current + keyword.length() <= code.length():
+            if code.substr(current, keyword.length()) == keyword and not code[current + keyword.length()].is_valid_ascii_identifier():
+                return true
+    return false
+
+static func handle_break_or_continue_keyword(code: String, current: int, line: int) -> Array:
+    var keywords = {
+        "break": TritiumData.TokenType.BREAK,
+        "continue": TritiumData.TokenType.CONTINUE
+    }
+    for keyword in keywords.keys():
+        if code.substr(current, keyword.length()) == keyword:
+            return [current + keyword.length(), TritiumData.Token.new(keywords[keyword], keyword, line)]
+    return [current, null]
+
 
 static func handle_string(code: String, current: int, line: int) -> Array:
     var string_delimiter = code[current]

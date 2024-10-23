@@ -18,7 +18,11 @@ var visitors = {
     (func(node): return node is TritiumAST.IfNode): visit_if,
     (func(node): return node is TritiumAST.StringNode): visit_string,
     (func(node): return node is TritiumAST.AttributeAccessNode): visit_attribute_access,
-    (func(node): return node is TritiumAST.UnaryOpNode): visit_unary_op
+    (func(node): return node is TritiumAST.UnaryOpNode): visit_unary_op,
+    (func(node): return node is TritiumAST.DataStructureNode): visit_data_structure,
+    (func(node): return node is TritiumAST.ForLoopNode): visit_for_loop,
+    (func(node): return node is TritiumAST.BreakNode): visit_break,
+    (func(node): return node is TritiumAST.ContinueNode): visit_continue
 }
 
 var ops = {
@@ -190,6 +194,19 @@ func visit_number(node: TritiumAST.NumberNode) -> TritiumData.InterpreterResult:
 func visit_string(node: TritiumAST.StringNode) -> TritiumData.InterpreterResult:
     return success(node.token.value)
 
+func visit_data_structure(node: TritiumAST.DataStructureNode) -> TritiumData.InterpreterResult:
+    var arr = []
+    for element: TritiumAST.ASTNode in node.elements:
+        var result = visit(element)
+        if result.error:
+            return result
+        arr.append(result.value)
+    if node.data_type == "Set":
+        return success(HashSet.new(arr))
+    if node.data_type == "Tuple":
+        return success(Tuple.new(arr))
+    return success(arr)
+
 func visit_if(node: TritiumAST.IfNode) -> TritiumData.InterpreterResult:
     var condition_result = visit(node.condition)
     if condition_result.is_error():
@@ -210,6 +227,35 @@ func visit_if(node: TritiumAST.IfNode) -> TritiumData.InterpreterResult:
 
     return success(null)
 
+func visit_for_loop(node: TritiumAST.ForLoopNode) -> TritiumData.InterpreterResult:
+    var iterable_result = visit(node.iterable)
+    if iterable_result.is_error():
+        return iterable_result
+
+    var iterable = iterable_result.value
+    if typeof(iterable) != TYPE_ARRAY:
+        return error("For loop iterable must be an array")
+
+    for element in iterable:
+        var local_scope = global_scope.duplicate()
+        local_scope[node.identifier.var_name.value] = element
+
+        var result = execute_block_with_scope(node.body, local_scope)
+        if result.is_error():
+            return result
+        if result.value == "break":
+            break
+        if result.value == "continue":
+            continue
+
+    return success(null)
+
+func visit_break(node: TritiumAST.BreakNode) -> TritiumData.InterpreterResult:
+    return success("break")
+
+func visit_continue(node: TritiumAST.ContinueNode) -> TritiumData.InterpreterResult:
+    return success("continue")
+
 func visit_attribute_access(node: TritiumAST.AttributeAccessNode) -> TritiumData.InterpreterResult:
     var left_result = visit(node.left)
     if left_result.is_error():
@@ -225,7 +271,12 @@ func visit_attribute_access(node: TritiumAST.AttributeAccessNode) -> TritiumData
                         return arg_result
                     evaluated_args.append(arg_result.value)
                 var func_: Callable = left_result.value[node.right.func_name.value]
-                if evaluated_args.size() < func_.get_argument_count():
+                var fn_def = func_.get_object().get_script().get_script_method_list().filter(func(x): return x["name"] == func_.get_method())
+                if fn_def.size() != 0:
+                    fn_def = fn_def[0]
+                    if fn_def.has("default_args"):
+                        func_ = func_.bindv(fn_def["default_args"])
+                if func_.get_argument_count() > evaluated_args.size():
                     return error("Insufficient number of args passed for: %s, expected %s, got %s" % [node.right.func_name.value, func_.get_argument_count(), evaluated_args.size()])
                 return success(left_result.value.callv(node.right.func_name.value, evaluated_args))
         return visit_function_call(node.right)
@@ -300,6 +351,13 @@ func execute_function(function_def: TritiumAST.FunctionDefNode, local_scope: Dic
     var result = visit(function_def.body)
     global_scope = old_global_scope
 
+    return result
+
+func execute_block_with_scope(body: TritiumAST.StatementsNode, local_scope: Dictionary) -> TritiumData.InterpreterResult:
+    var old_global_scope = global_scope
+    global_scope = local_scope
+    var result = visit(body)
+    global_scope = old_global_scope
     return result
 
 func _interpret(ast: TritiumAST.ASTNode, main_args={}) -> TritiumData.InterpreterResult:

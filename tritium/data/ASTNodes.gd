@@ -3,23 +3,6 @@ class_name TritiumAST
 class ASTNode:
     pass
 
-class FunctionCallNode extends ASTNode:
-    func _to_string() -> String:
-        return "%s(%s)" % [self.func_name.value, ", ".join(self.args.map(str))]
-
-    func to_dict() -> Dictionary:
-        return {
-            "type": "FunctionCallNode",
-            "func_name": self.func_name.value,
-            "args": self.args.map(func(x): return x.to_dict())
-        }
-
-    var func_name: TritiumData.Token
-    var args: Array
-
-    func _init(func_name: TritiumData.Token, args: Array):
-        self.func_name = func_name
-        self.args = args
 
 class UnaryOpNode extends ASTNode:
     func _init(op_token, operand):
@@ -38,7 +21,6 @@ class UnaryOpNode extends ASTNode:
 
     var op_token: TritiumData.Token
     var operand: ASTNode
-
 
 class BinOpNode extends ASTNode:
     func _to_string() -> String:
@@ -93,6 +75,24 @@ class StatementsNode extends ASTNode:
 
     func _init(statements: Array):
         self.statements = statements
+
+class FunctionCallNode extends ASTNode:
+    func _to_string() -> String:
+        return "%s(%s)" % [self.func_name.value, ", ".join(self.args.map(str))]
+
+    func to_dict() -> Dictionary:
+        return {
+            "type": "FunctionCallNode",
+            "func_name": self.func_name.value,
+            "args": self.args.map(func(x): return x.to_dict())
+        }
+
+    var func_name: TritiumData.Token
+    var args: Array
+
+    func _init(func_name: TritiumData.Token, args: Array):
+        self.func_name = func_name
+        self.args = args
 
 class FunctionDefNode extends ASTNode:
     func _to_string() -> String:
@@ -234,6 +234,50 @@ class IfNode extends ASTNode:
         self.elif_cases = elif_cases
         self.else_case = else_case
 
+class BreakNode extends ASTNode:
+    func _to_string() -> String:
+        return "break"
+
+    func to_dict() -> Dictionary:
+        return {
+            "type": "BreakNode"
+        }
+
+    func _init():
+        pass
+
+class ContinueNode extends ASTNode:
+    func _to_string() -> String:
+        return "continue"
+
+    func to_dict() -> Dictionary:
+        return {
+            "type": "ContinueNode"
+        }
+
+    func _init():
+        pass
+
+class ForLoopNode extends ASTNode:
+    func _to_string() -> String:
+        return "for %s in %s:\n  %s" % [self.identifier._to_string(), self.iterable._to_string(), self.body._to_string()]
+
+    func to_dict() -> Dictionary:
+        return {
+            "type": "ForLoopNode",
+            "identifier": self.identifier.to_dict(),
+            "iterable": self.iterable.to_dict(),
+            "body": self.body.to_dict()
+        }
+
+    var identifier: VarAccessNode
+    var iterable: ASTNode
+    var body: StatementsNode
+
+    func _init(identifier: VarAccessNode, iterable: ASTNode, body: StatementsNode):
+        self.identifier = identifier
+        self.iterable = iterable
+        self.body = body
 
 class AttributeAccessNode extends ASTNode:
     func _to_string() -> String:
@@ -271,7 +315,6 @@ class InvalidSyntaxError extends ASTNode:
         self.line = line
         self.message = "Syntax error on line %d: %s" % [line, message]
 
-
 class DataStructureNode extends ASTNode:
     func _to_string() -> String:
         return "%s(%s)" % [self.data_type, ", ".join(self.elements.map(str))]
@@ -289,7 +332,6 @@ class DataStructureNode extends ASTNode:
     func _init(data_type: String, elements: Array):
         self.data_type = data_type
         self.elements = elements
-
 
 class Pair:
     var left: ASTNode

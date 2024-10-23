@@ -5,11 +5,11 @@ class Parser:
         var res = TritiumData.ParseResult.new()
         var args = []
 
-        if self.current_token.type != TritiumData.TokenType.PAREN or self.current_token.value != "(":
+        if not self.expect_token(TritiumData.TokenType.PAREN, "("):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '('"))
         self.advance()
 
-        if self.current_token.type != TritiumData.TokenType.PAREN or self.current_token.value != ")":
+        if not self.expect_token(TritiumData.TokenType.PAREN, ")"):
             var arg = res.register(self.expression())
             if res.error:
                 return res
@@ -22,7 +22,7 @@ class Parser:
                     return res
                 args.append(arg)
 
-        if self.current_token.type != TritiumData.TokenType.PAREN or self.current_token.value != ")":
+        if not self.expect_token(TritiumData.TokenType.PAREN, ")"):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')'"))
         self.advance()
 
@@ -75,116 +75,118 @@ class Parser:
             var node = res.register(self.return_statement())
             if res.error:
                 return res
-            if self.current_token.type == TritiumData.TokenType.SEMICOLON:
-                self.advance()
+            self.consume_token(TritiumData.TokenType.SEMICOLON)
             return res.success(node)
         elif self.current_token.type == TritiumData.TokenType.IF:
             var node = res.register(self.if_statement())
             if res.error:
                 return res
             return res.success(node)
+        elif self.current_token.type == TritiumData.TokenType.FOR:
+            var node = res.register(self.for_loop_statement())
+            if res.error:
+                return res
+            return res.success(node)
+        elif self.current_token.type == TritiumData.TokenType.BREAK:
+            self.advance()
+            self.consume_token(TritiumData.TokenType.SEMICOLON)
+            return res.success(TritiumAST.BreakNode.new())
+        elif self.current_token.type == TritiumData.TokenType.CONTINUE:
+            self.advance()
+            self.consume_token(TritiumData.TokenType.SEMICOLON)
+            return res.success(TritiumAST.ContinueNode.new())
         elif self.current_token.type == TritiumData.TokenType.IDENTIFIER:
             var identifier_token = self.current_token
             self.advance()
+
+            if self.current_token.type == TritiumData.TokenType.DOT:
+                # Attribute access detected, disallow assignment after attribute access
+                self.rewind()
+                var node = res.register(self.expression())
+                if res.error:
+                    return res
+                self.consume_token(TritiumData.TokenType.SEMICOLON)
+                return res.success(node)
 
             if self.current_token.type == TritiumData.TokenType.ASSIGNMENT:
                 self.advance()
                 var expr = res.register(self.expression())
                 if res.error:
                     return res
-                if self.current_token.type == TritiumData.TokenType.SEMICOLON:
-                    self.advance()
+                self.consume_token(TritiumData.TokenType.SEMICOLON)
                 return res.success(TritiumAST.AssignmentNode.new(identifier_token, expr))
             else:
-                self.token_idx -= 1  # Rewind to reprocess as an expression
-                self.current_token = self.tokens[self.token_idx]
+                self.rewind()
                 var node = res.register(self.expression())
                 if res.error:
                     return res
-                if self.current_token.type == TritiumData.TokenType.SEMICOLON:
-                    self.advance()
+                self.consume_token(TritiumData.TokenType.SEMICOLON)
                 return res.success(node)
-        elif self.current_token.type in [TritiumData.TokenType.SQUARE_OPEN, TritiumData.TokenType.CURLY_OPEN, TritiumData.TokenType.PAREN]:
-            var node = res.register(self.data_structure())
-            if res.error:
-                return res
-            return res.success(node)
         else:
             var node = res.register(self.expression())
             if res.error:
                 return res
-            if self.current_token.type == TritiumData.TokenType.SEMICOLON:
-                self.advance()
+            self.consume_token(TritiumData.TokenType.SEMICOLON)
             return res.success(node)
 
     func if_statement() -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
 
-        if self.current_token.type != TritiumData.TokenType.IF:
+        if not self.expect_token(TritiumData.TokenType.IF):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected 'if'"))
         self.advance()
 
-        if self.current_token.type != TritiumData.TokenType.PAREN:
+        if not self.expect_token(TritiumData.TokenType.PAREN):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '(' after 'if'"))
         self.advance()
 
-        var condition = res.register(self.expression())  # Use expression to parse conditions
+        var condition = res.register(self.expression())
         if res.error:
             return res
 
-        if self.current_token.type != TritiumData.TokenType.PAREN:
+        if not self.expect_token(TritiumData.TokenType.PAREN):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')' after condition"))
-        self.advance()  # Advance after ')'
+        self.advance()
 
-        # Expect '{' to start 'if' body
-        if self.current_token.type != TritiumData.TokenType.CURLY_OPEN:
+        if not self.expect_token(TritiumData.TokenType.CURLY_OPEN):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '{' to start 'if' body"))
-        self.advance()  # Advance after '{'
+        self.advance()
 
-        # Parse 'if' body
         var body = res.register(self.statements())
         if res.error:
             return res
 
-        # Expect '}' to end 'if' body
-        if self.current_token.type != TritiumData.TokenType.CURLY_CLOSE:
+        if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'if' body"))
-        self.advance()  # Advance after '}'
+        self.advance()
 
-        # Optional 'elif' and 'else' block handling
         var elif_cases: Array[Dictionary] = []
         while self.current_token.type == TritiumData.TokenType.ELIF:
-            self.advance()  # Advance after 'elif'
+            self.advance()
 
-            # Expect '(' after 'elif'
-            if self.current_token.type != TritiumData.TokenType.PAREN or self.current_token.value != "(":
+            if not self.expect_token(TritiumData.TokenType.PAREN, "("):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '(' after 'if'"))
-            self.advance()  # Advance after '('
+            self.advance()
 
-            # Parse the condition
             var elif_condition = res.register(self.expression())
             if res.error:
                 return res
 
-            # Expect ')' after condition
-            if self.current_token.type != TritiumData.TokenType.PAREN or self.current_token.value != ")":
+            if not self.expect_token(TritiumData.TokenType.PAREN, ")"):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')' after condition"))
-            self.advance()  # Advance after ')'
+            self.advance()
 
-            # Expect '{' to start 'if' body
-            if self.current_token.type != TritiumData.TokenType.CURLY_OPEN:
+            if not self.expect_token(TritiumData.TokenType.CURLY_OPEN):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '{' to start 'if' body"))
-            self.advance()  # Advance after '{'
+            self.advance()
 
-            # Parse 'elif' body
             var elif_body = res.register(self.statements())
             if res.error:
                 return res
 
-            # Expect '}' to end 'if' body
-            if self.current_token.type != TritiumData.TokenType.CURLY_CLOSE:
+            if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'if' body"))
-            self.advance()  # Advance after '}'
+            self.advance()
 
             elif_cases.append({
                 "condition": elif_condition,
@@ -193,37 +195,76 @@ class Parser:
 
         var else_case = null
         if self.current_token.type == TritiumData.TokenType.ELSE:
-            self.advance()  # Advance after 'else'
+            self.advance()
 
-            # Expect '{' to start 'else' body
-            if self.current_token.type != TritiumData.TokenType.CURLY_OPEN:
+            if not self.expect_token(TritiumData.TokenType.CURLY_OPEN):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '{' to start 'else' body"))
-            self.advance()  # Advance after '{'
+            self.advance()
 
-            # Parse 'else' body
             else_case = res.register(self.statements())
             if res.error:
                 return res
 
-            # Expect '}' to end 'else' body
-            if self.current_token.type != TritiumData.TokenType.CURLY_CLOSE:
+            if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'else' body"))
-            self.advance()  # Advance after '}'
+            self.advance()
 
         return res.success(TritiumAST.IfNode.new(condition, body, elif_cases, else_case))
 
+    func for_loop_statement() -> TritiumData.ParseResult:
+        var res = TritiumData.ParseResult.new()
+
+        if not self.expect_token(TritiumData.TokenType.FOR):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected 'for'"))
+        self.advance()
+
+        if not self.expect_token(TritiumData.TokenType.PAREN, "("):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '(' after 'for'"))
+        self.advance()
+
+        if not self.expect_token(TritiumData.TokenType.IDENTIFIER):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected identifier in 'for' loop"))
+        var identifier = TritiumAST.VarAccessNode.new(self.current_token)
+        self.advance()
+
+        if not self.expect_token(TritiumData.TokenType.IN):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected 'in' after identifier in 'for' loop"))
+        self.advance()
+
+        var iterable = res.register(self.expression())
+        if res.error:
+            return res
+
+        if not self.expect_token(TritiumData.TokenType.PAREN, ")"):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')' after iterable in 'for' loop"))
+        self.advance()
+
+        if not self.expect_token(TritiumData.TokenType.CURLY_OPEN):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '{' to start 'for' loop body"))
+        self.advance()
+
+        var body = res.register(self.statements())
+        if res.error:
+            return res
+
+        if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'for' loop body"))
+        self.advance()
+
+        return res.success(TritiumAST.ForLoopNode.new(identifier, iterable, body))
+
     func function_definition() -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
-        if self.current_token.type != TritiumData.TokenType.FN:
+        if not self.expect_token(TritiumData.TokenType.FN):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected 'fn'"))
         self.advance()
 
-        if self.current_token.type != TritiumData.TokenType.IDENTIFIER:
+        if not self.expect_token(TritiumData.TokenType.IDENTIFIER):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected function name"))
         var func_name = self.current_token
         self.advance()
 
-        if self.current_token.type != TritiumData.TokenType.PAREN or self.current_token.value != "(":
+        if not self.expect_token(TritiumData.TokenType.PAREN, "("):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '('"))
         self.advance()
 
@@ -233,16 +274,16 @@ class Parser:
             self.advance()
             while self.current_token.type == TritiumData.TokenType.COMMA:
                 self.advance()
-                if self.current_token.type != TritiumData.TokenType.IDENTIFIER:
+                if not self.expect_token(TritiumData.TokenType.IDENTIFIER):
                     return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected identifier"))
                 arg_names.append(self.current_token)
                 self.advance()
 
-        if self.current_token.type != TritiumData.TokenType.PAREN or self.current_token.value != ")":
+        if not self.expect_token(TritiumData.TokenType.PAREN, ")"):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')'"))
         self.advance()
 
-        if self.current_token.type != TritiumData.TokenType.CURLY_OPEN:
+        if not self.expect_token(TritiumData.TokenType.CURLY_OPEN):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '{'"))
         self.advance()
 
@@ -250,7 +291,7 @@ class Parser:
         if res.error:
             return res
 
-        if self.current_token.type != TritiumData.TokenType.CURLY_CLOSE:
+        if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}'"))
         self.advance()
 
@@ -258,7 +299,7 @@ class Parser:
 
     func return_statement() -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
-        if self.current_token.type != TritiumData.TokenType.RETURN:
+        if not self.expect_token(TritiumData.TokenType.RETURN):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected 'return'"))
         self.advance()
 
@@ -266,9 +307,7 @@ class Parser:
         if res.error:
             return res
 
-        if self.current_token.type == TritiumData.TokenType.SEMICOLON:
-            self.advance()
-
+        self.consume_token(TritiumData.TokenType.SEMICOLON)
         return res.success(TritiumAST.ReturnNode.new(expr))
 
     func data_structure() -> TritiumData.ParseResult:
@@ -288,7 +327,7 @@ class Parser:
         else:
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '[' or '{' or '(' for data structure"))
 
-        if self.current_token.type != TritiumData.TokenType.SQUARE_CLOSE and self.current_token.type != TritiumData.TokenType.CURLY_CLOSE and self.current_token.type != TritiumData.TokenType.PAREN:
+        if self.current_token.type not in [TritiumData.TokenType.SQUARE_CLOSE, TritiumData.TokenType.CURLY_CLOSE, TritiumData.TokenType.PAREN]:
             var element = res.register(self.expression())
             if res.error:
                 return res
@@ -301,12 +340,8 @@ class Parser:
                     return res
                 elements.append(element)
 
-        if data_type == "Array" and self.current_token.type != TritiumData.TokenType.SQUARE_CLOSE:
-            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ']'"))
-        elif data_type == "Set" and self.current_token.type != TritiumData.TokenType.CURLY_CLOSE:
-            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}'"))
-        elif data_type == "Tuple" and self.current_token.type != TritiumData.TokenType.PAREN:
-            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')'"))
+        if not self.expect_token(self.get_closing_token(data_type)):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '%s'" % self.get_closing_token(data_type)))
         self.advance()
 
         return res.success(TritiumAST.DataStructureNode.new(data_type, elements))
@@ -325,6 +360,13 @@ class Parser:
                 return res
 
             left = TritiumAST.BinOpNode.new(left, op_token, right)
+
+        # Handle attribute access if there's a DOT
+        while self.current_token.type == TritiumData.TokenType.DOT:
+            self.advance()
+            left = res.register(self.attribute_access(left))
+            if res.error:
+                return res
 
         return res.success(left)
 
@@ -383,40 +425,38 @@ class Parser:
         return res.success(left)
 
     func factor() -> TritiumData.ParseResult:
-        # Handles literals, variables, parentheses, function calls, and unary operations
         var res = TritiumData.ParseResult.new()
         var token = self.current_token
+        var node
 
         if token.type == TritiumData.TokenType.OPERATOR and token.value in ["+", "-"]:
             self.advance()
             var operand = res.register(self.factor())
             if res.error:
                 return res
-            return res.success(TritiumAST.UnaryOpNode.new(token, operand))
+            node = TritiumAST.UnaryOpNode.new(token, operand)
         elif token.type == TritiumData.TokenType.PAREN and token.value == "(":
             self.advance()
             var expr = res.register(self.expression())
             if res.error:
                 return res
-            if self.current_token.type != TritiumData.TokenType.PAREN or self.current_token.value != ")":
+            if not self.expect_token(TritiumData.TokenType.PAREN, ")"):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(token.line, "Expected ')'"))
             self.advance()
-            return res.success(expr)
+            node = expr
         elif token.type == TritiumData.TokenType.INT or token.type == TritiumData.TokenType.FLOAT:
             self.advance()
-            return res.success(TritiumAST.NumberNode.new(token))
+            node = TritiumAST.NumberNode.new(token)
         elif token.type == TritiumData.TokenType.STRING:
             self.advance()
-            return res.success(TritiumAST.StringNode.new(token))
+            node = TritiumAST.StringNode.new(token)
         elif token.type == TritiumData.TokenType.IDENTIFIER:
             self.advance()
-            var node: TritiumAST.ASTNode
             if self.current_token.type == TritiumData.TokenType.PAREN and self.current_token.value == "(":
                 node = res.register(self.function_call(token))
             else:
                 node = TritiumAST.VarAccessNode.new(token)
 
-            # Handle attribute access if there's a DOT
             while self.current_token.type == TritiumData.TokenType.DOT:
                 self.advance()
                 node = res.register(self.attribute_access(node))
@@ -424,27 +464,58 @@ class Parser:
                     return res
 
             return res.success(node)
+        elif token.type in [TritiumData.TokenType.SQUARE_OPEN, TritiumData.TokenType.CURLY_OPEN, TritiumData.TokenType.PAREN]:
+            node = res.register(self.data_structure())
+            if res.error:
+                return res
 
-        return res.failure(TritiumAST.InvalidSyntaxError.new(token.line, "Unexpected token '%s'" % token.value))
+        while self.current_token.type == TritiumData.TokenType.DOT:
+            self.advance()
+            node = res.register(self.attribute_access(node))
+            if res.error:
+                return res
+
+        return res.success(node)
+
 
     func attribute_access(left: TritiumAST.ASTNode) -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
 
-        if self.current_token.type != TritiumData.TokenType.IDENTIFIER:
+        if not self.expect_token(TritiumData.TokenType.IDENTIFIER):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected identifier after '.'"))
 
         var attribute_name = self.current_token
         self.advance()
 
-        # Check if the attribute is a function call
         if self.current_token.type == TritiumData.TokenType.PAREN and self.current_token.value == "(":
             var function_call_node = res.register(self.function_call(attribute_name))
             if res.error:
                 return res
             return res.success(TritiumAST.AttributeAccessNode.new(left, function_call_node))
 
-        # Otherwise, it's a simple attribute access
         return res.success(TritiumAST.AttributeAccessNode.new(left, TritiumAST.VarAccessNode.new(attribute_name)))
+
+    func expect_token(token_type: TritiumData.TokenType, value: String = "") -> bool:
+        return self.current_token.type == token_type and (not value or self.current_token.value == value)
+
+    func consume_token(token_type: TritiumData.TokenType):
+        if self.current_token.type == token_type:
+            self.advance()
+
+    func rewind():
+        self.token_idx -= 1
+        self.current_token = self.tokens[self.token_idx]
+
+    func get_closing_token(data_type: String) -> TritiumData.TokenType:
+        match data_type:
+            "Array":
+                return TritiumData.TokenType.SQUARE_CLOSE
+            "Set":
+                return TritiumData.TokenType.CURLY_CLOSE
+            "Tuple":
+                return TritiumData.TokenType.PAREN
+            _:
+                return TritiumData.TokenType.INVALID
 
 static func parse(lexed_result: TritiumData.LexerResult) -> TritiumData.ParseResult:
     if lexed_result.error:

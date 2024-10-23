@@ -10,13 +10,17 @@ enum AmmoType {
 
 signal data_updated
 
-
-
 func _set(property: StringName, value: Variant) -> bool:
-    data_updated.emit.call_deferred.call_deferred()
+    data_updated.emit.call_deferred()
     return false
 
-@export var name: String = ""
+@export var name: String = "":
+    set(v):
+        name = v
+        if name != v:
+            name = v
+            data_updated.emit.call_deferred()
+
 @export var power: float:
     set(v):
         power = clamp(v, 0, 1)
@@ -37,6 +41,9 @@ func _set(property: StringName, value: Variant) -> bool:
 
 func move_to(position: Vector2i):
     mech_target = position
+
+func set_mech_name(name: String):
+    self.name = name
 
 func _to_string() -> String:
     var display: String = ""
