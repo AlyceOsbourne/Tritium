@@ -104,6 +104,11 @@ class Parser:
                 if self.current_token.type == TritiumData.TokenType.SEMICOLON:
                     self.advance()
                 return res.success(node)
+        elif self.current_token.type in [TritiumData.TokenType.SQUARE_OPEN, TritiumData.TokenType.CURLY_OPEN, TritiumData.TokenType.PAREN]:
+            var node = res.register(self.data_structure())
+            if res.error:
+                return res
+            return res.success(node)
         else:
             var node = res.register(self.expression())
             if res.error:
@@ -265,6 +270,46 @@ class Parser:
             self.advance()
 
         return res.success(TritiumAST.ReturnNode.new(expr))
+
+    func data_structure() -> TritiumData.ParseResult:
+        var res = TritiumData.ParseResult.new()
+        var elements = []
+        var data_type = ""
+
+        if self.current_token.type == TritiumData.TokenType.SQUARE_OPEN:
+            data_type = "Array"
+            self.advance()
+        elif self.current_token.type == TritiumData.TokenType.CURLY_OPEN:
+            data_type = "Set"
+            self.advance()
+        elif self.current_token.type == TritiumData.TokenType.PAREN:
+            data_type = "Tuple"
+            self.advance()
+        else:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '[' or '{' or '(' for data structure"))
+
+        if self.current_token.type != TritiumData.TokenType.SQUARE_CLOSE and self.current_token.type != TritiumData.TokenType.CURLY_CLOSE and self.current_token.type != TritiumData.TokenType.PAREN:
+            var element = res.register(self.expression())
+            if res.error:
+                return res
+            elements.append(element)
+
+            while self.current_token.type == TritiumData.TokenType.COMMA:
+                self.advance()
+                element = res.register(self.expression())
+                if res.error:
+                    return res
+                elements.append(element)
+
+        if data_type == "Array" and self.current_token.type != TritiumData.TokenType.SQUARE_CLOSE:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ']'"))
+        elif data_type == "Set" and self.current_token.type != TritiumData.TokenType.CURLY_CLOSE:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}'"))
+        elif data_type == "Tuple" and self.current_token.type != TritiumData.TokenType.PAREN:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')'"))
+        self.advance()
+
+        return res.success(TritiumAST.DataStructureNode.new(data_type, elements))
 
     func expression() -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()

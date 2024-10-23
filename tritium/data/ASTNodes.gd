@@ -270,3 +270,40 @@ class InvalidSyntaxError extends ASTNode:
     func _init(line: int, message: String):
         self.line = line
         self.message = "Syntax error on line %d: %s" % [line, message]
+
+
+class DataStructureNode extends ASTNode:
+    func _to_string() -> String:
+        return "%s(%s)" % [self.data_type, ", ".join(self.elements.map(str))]
+
+    func to_dict() -> Dictionary:
+        return {
+            "type": "DataStructureNode",
+            "data_type": self.data_type,
+            "elements": self.elements.map(func(x): return x.to_dict())
+        }
+
+    var data_type: String # "Array", "Dict", "Set", or "Tuple"
+    var elements: Array
+
+    func _init(data_type: String, elements: Array):
+        self.data_type = data_type
+        self.elements = elements
+
+
+class Pair:
+    var left: ASTNode
+    var right: ASTNode
+
+    func _init(left: ASTNode, right: ASTNode):
+        self.left = left
+        self.right = right
+
+    func _to_string() -> String:
+        return "(%s: %s)" % [self.left._to_string(), self.right._to_string()]
+
+    func to_dict() -> Dictionary:
+        return {
+            "left": self.left.to_dict(),
+            "right": self.right.to_dict()
+        }

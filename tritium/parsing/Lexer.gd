@@ -98,6 +98,11 @@ static func tokenize(code: String) -> TritiumData.LexerResult:
             current += 1
             continue
 
+        if is_colon(char):
+            tokens.append(TritiumData.Token.new(TritiumData.TokenType.COLON, char, line))
+            current += 1
+            continue
+
         if is_comma(char):
             tokens.append(TritiumData.Token.new(TritiumData.TokenType.COMMA, char, line))
             current += 1
@@ -197,6 +202,9 @@ static func is_assignment(char: String) -> bool:
     return char == "="
 
 static func is_semicolon(char: String) -> bool:
+    return char == ";"
+
+static func is_colon(char: String) -> bool:
     return char == ";"
 
 static func is_comma(char: String) -> bool:
