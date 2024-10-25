@@ -1,8 +1,8 @@
 class_name TritiumCodeEditor
 extends CodeEdit
 
-@export var tritium: Tritium
-@export var mech_data: MechData
+@export var tritium: Tritium = Tritium.new()
+var mech_data: MechData = MechData.new()
 
 func refresh(meta_data:={}):
     for k in get_meta_list():
@@ -15,24 +15,7 @@ func _init() -> void:
     gutters_draw_fold_gutter = true
 
     text_changed.connect(refresh)
-    set_text("""# Mecha boot script
-
-fn main(){
-    systems_check()
-    return OK;
-}
-
-fn systems_check() {
-    print("Running checks for: " + mech.name)
-    assert(mech.power, "Mech is out of power.")
-    if (mech.power < 0.3) {printerr("Mech power low.")}
-    assert(mech.integrity, "Mech requires urgent maintainence.")
-    if (mech.integrity < 0.3) {printerr("Mech integrity low.")}
-    assert(mech.temperature < 100, "Mech is overheated.")
-    assert(mech.temperature > 0, "Mech is frozen.")
-    print("All Systems Nominal. Can proceed with mission.")
-}
-""")
+    set_text(mech_data._code)
 
     fold_all_lines()
     code_completion_enabled = true

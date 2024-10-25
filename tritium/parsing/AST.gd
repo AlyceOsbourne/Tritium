@@ -48,7 +48,9 @@ class Parser:
 
     func parse() -> TritiumData.ParseResult:
         var res = self.statements()
-        if not res.error and self.current_token.type != TritiumData.TokenType.EOF:
+        if res.error or res.node == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid or empty AST"))
+        if self.current_token.type != TritiumData.TokenType.EOF:
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Unexpected token '%s'" % self.current_token.value))
         return res
 
@@ -62,30 +64,37 @@ class Parser:
                 return res
             statements.append(statement)
 
+        if statements.is_empty():
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected at least one statement"))
+
         return res.success(TritiumAST.StatementsNode.new(statements))
 
     func statement() -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
         if self.current_token.type == TritiumData.TokenType.FN:
             var node = res.register(self.function_definition())
-            if res.error:
-                return res
+            if res.error or node == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid function definition"))
             return res.success(node)
         elif self.current_token.type == TritiumData.TokenType.RETURN:
-            var node = res.register(self.return_statement())
-            if res.error:
-                return res
+            self.advance()
+            if self.current_token.type == TritiumData.TokenType.SEMICOLON:
+                self.consume_token(TritiumData.TokenType.SEMICOLON)
+                return res.success(TritiumAST.ReturnNode.new(null))
+            var node = res.register(self.expression())
+            if res.error or node == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid return statement"))
             self.consume_token(TritiumData.TokenType.SEMICOLON)
-            return res.success(node)
+            return res.success(TritiumAST.ReturnNode.new(node))
         elif self.current_token.type == TritiumData.TokenType.IF:
             var node = res.register(self.if_statement())
-            if res.error:
-                return res
+            if res.error or node == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid if statement"))
             return res.success(node)
         elif self.current_token.type == TritiumData.TokenType.FOR:
             var node = res.register(self.for_loop_statement())
-            if res.error:
-                return res
+            if res.error or node == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid for loop statement"))
             return res.success(node)
         elif self.current_token.type == TritiumData.TokenType.BREAK:
             self.advance()
@@ -103,29 +112,29 @@ class Parser:
                 # Attribute access detected, disallow assignment after attribute access
                 self.rewind()
                 var node = res.register(self.expression())
-                if res.error:
-                    return res
+                if res.error or node == null:
+                    return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid attribute access expression"))
                 self.consume_token(TritiumData.TokenType.SEMICOLON)
                 return res.success(node)
 
             if self.current_token.type == TritiumData.TokenType.ASSIGNMENT:
                 self.advance()
                 var expr = res.register(self.expression())
-                if res.error:
-                    return res
+                if res.error or expr == null:
+                    return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid assignment expression"))
                 self.consume_token(TritiumData.TokenType.SEMICOLON)
                 return res.success(TritiumAST.AssignmentNode.new(identifier_token, expr))
             else:
                 self.rewind()
                 var node = res.register(self.expression())
-                if res.error:
-                    return res
+                if res.error or node == null:
+                    return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid expression"))
                 self.consume_token(TritiumData.TokenType.SEMICOLON)
                 return res.success(node)
         else:
             var node = res.register(self.expression())
-            if res.error:
-                return res
+            if res.error or node == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid expression"))
             self.consume_token(TritiumData.TokenType.SEMICOLON)
             return res.success(node)
 
@@ -141,8 +150,8 @@ class Parser:
         self.advance()
 
         var condition = res.register(self.expression())
-        if res.error:
-            return res
+        if res.error or condition == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid condition in 'if' statement"))
 
         if not self.expect_token(TritiumData.TokenType.PAREN):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')' after condition"))
@@ -153,8 +162,8 @@ class Parser:
         self.advance()
 
         var body = res.register(self.statements())
-        if res.error:
-            return res
+        if res.error or body == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid body in 'if' statement"))
 
         if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'if' body"))
@@ -165,27 +174,27 @@ class Parser:
             self.advance()
 
             if not self.expect_token(TritiumData.TokenType.PAREN, "("):
-                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '(' after 'if'"))
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '(' after 'elif'"))
             self.advance()
 
             var elif_condition = res.register(self.expression())
-            if res.error:
-                return res
+            if res.error or elif_condition == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid condition in 'elif' statement"))
 
             if not self.expect_token(TritiumData.TokenType.PAREN, ")"):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')' after condition"))
             self.advance()
 
             if not self.expect_token(TritiumData.TokenType.CURLY_OPEN):
-                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '{' to start 'if' body"))
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '{' to start 'elif' body"))
             self.advance()
 
             var elif_body = res.register(self.statements())
-            if res.error:
-                return res
+            if res.error or elif_body == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid body in 'elif' statement"))
 
             if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
-                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'if' body"))
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'elif' body"))
             self.advance()
 
             elif_cases.append({
@@ -202,8 +211,8 @@ class Parser:
             self.advance()
 
             else_case = res.register(self.statements())
-            if res.error:
-                return res
+            if res.error or else_case == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid body in 'else' statement"))
 
             if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'else' body"))
@@ -232,8 +241,8 @@ class Parser:
         self.advance()
 
         var iterable = res.register(self.expression())
-        if res.error:
-            return res
+        if res.error or iterable == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid iterable in 'for' loop"))
 
         if not self.expect_token(TritiumData.TokenType.PAREN, ")"):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')' after iterable in 'for' loop"))
@@ -244,8 +253,8 @@ class Parser:
         self.advance()
 
         var body = res.register(self.statements())
-        if res.error:
-            return res
+        if res.error or body == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid body in 'for' loop"))
 
         if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to end 'for' loop body"))
@@ -288,8 +297,8 @@ class Parser:
         self.advance()
 
         var body = res.register(self.statements())
-        if res.error:
-            return res
+        if res.error or body == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid function body"))
 
         if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
             return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}'"))
@@ -304,8 +313,8 @@ class Parser:
         self.advance()
 
         var expr = res.register(self.expression())
-        if res.error:
-            return res
+        if res.error or expr == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid return expression"))
 
         self.consume_token(TritiumData.TokenType.SEMICOLON)
         return res.success(TritiumAST.ReturnNode.new(expr))
@@ -329,15 +338,15 @@ class Parser:
 
         if self.current_token.type not in [TritiumData.TokenType.SQUARE_CLOSE, TritiumData.TokenType.CURLY_CLOSE, TritiumData.TokenType.PAREN]:
             var element = res.register(self.expression())
-            if res.error:
-                return res
+            if res.error or element == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid element in data structure"))
             elements.append(element)
 
             while self.current_token.type == TritiumData.TokenType.COMMA:
                 self.advance()
                 element = res.register(self.expression())
-                if res.error:
-                    return res
+                if res.error or element == null:
+                    return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid element in data structure"))
                 elements.append(element)
 
         if not self.expect_token(self.get_closing_token(data_type)):
@@ -349,15 +358,15 @@ class Parser:
     func expression() -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
         var left = res.register(self.comparison())
-        if res.error:
-            return res
+        if res.error or left == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid comparison expression"))
 
         while self.current_token.type == TritiumData.TokenType.OPERATOR and self.current_token.value in ["and", "or", "==", "<=", ">=", "==", "!=", "<", ">"]:
             var op_token = self.current_token
             self.advance()
             var right = res.register(self.comparison())
-            if res.error:
-                return res
+            if res.error or right == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid comparison expression"))
 
             left = TritiumAST.BinOpNode.new(left, op_token, right)
 
@@ -365,8 +374,8 @@ class Parser:
         while self.current_token.type == TritiumData.TokenType.DOT:
             self.advance()
             left = res.register(self.attribute_access(left))
-            if res.error:
-                return res
+            if res.error or left == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid attribute access"))
 
         return res.success(left)
 
@@ -374,15 +383,15 @@ class Parser:
         # Handles comparison operators ('==', '!=', '>', '<', '>=', '<=')
         var res = TritiumData.ParseResult.new()
         var left = res.register(self.additive())
-        if res.error:
-            return res
+        if res.error or left == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid additive expression"))
 
         while self.current_token.type == TritiumData.TokenType.COMPARISON:
             var op_token = self.current_token
             self.advance()
             var right = res.register(self.additive())
-            if res.error:
-                return res
+            if res.error or right == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid additive expression"))
 
             left = TritiumAST.ComparisonNode.new(left, op_token, right)
 
@@ -392,15 +401,15 @@ class Parser:
         # Handles addition and subtraction ('+', '-')
         var res = TritiumData.ParseResult.new()
         var left = res.register(self.multiplicative())
-        if res.error:
-            return res
+        if res.error or left == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid multiplicative expression"))
 
         while self.current_token.type == TritiumData.TokenType.OPERATOR and self.current_token.value in ["+", "-"]:
             var op_token = self.current_token
             self.advance()
             var right = res.register(self.multiplicative())
-            if res.error:
-                return res
+            if res.error or right == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid multiplicative expression"))
 
             left = TritiumAST.BinOpNode.new(left, op_token, right)
 
@@ -410,15 +419,15 @@ class Parser:
         # Handles multiplication and division ('*', '/')
         var res = TritiumData.ParseResult.new()
         var left = res.register(self.factor())
-        if res.error:
-            return res
+        if res.error or left == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid factor expression"))
 
         while self.current_token.type == TritiumData.TokenType.OPERATOR and self.current_token.value in ["*", "/"]:
             var op_token = self.current_token
             self.advance()
             var right = res.register(self.factor())
-            if res.error:
-                return res
+            if res.error or right == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid factor expression"))
 
             left = TritiumAST.BinOpNode.new(left, op_token, right)
 
@@ -432,14 +441,14 @@ class Parser:
         if token.type == TritiumData.TokenType.OPERATOR and token.value in ["+", "-"]:
             self.advance()
             var operand = res.register(self.factor())
-            if res.error:
-                return res
+            if res.error or operand == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid unary operation"))
             node = TritiumAST.UnaryOpNode.new(token, operand)
         elif token.type == TritiumData.TokenType.PAREN and token.value == "(":
             self.advance()
             var expr = res.register(self.expression())
-            if res.error:
-                return res
+            if res.error or expr == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(token.line, "Invalid expression in parentheses"))
             if not self.expect_token(TritiumData.TokenType.PAREN, ")"):
                 return res.failure(TritiumAST.InvalidSyntaxError.new(token.line, "Expected ')'"))
             self.advance()
@@ -454,26 +463,28 @@ class Parser:
             self.advance()
             if self.current_token.type == TritiumData.TokenType.PAREN and self.current_token.value == "(":
                 node = res.register(self.function_call(token))
+                if res.error or node == null:
+                    return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid function call"))
             else:
                 node = TritiumAST.VarAccessNode.new(token)
 
             while self.current_token.type == TritiumData.TokenType.DOT:
                 self.advance()
                 node = res.register(self.attribute_access(node))
-                if res.error:
-                    return res
+                if res.error or node == null:
+                    return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid attribute access"))
 
             return res.success(node)
         elif token.type in [TritiumData.TokenType.SQUARE_OPEN, TritiumData.TokenType.CURLY_OPEN, TritiumData.TokenType.PAREN]:
             node = res.register(self.data_structure())
-            if res.error:
-                return res
+            if res.error or node == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid data structure"))
 
         while self.current_token.type == TritiumData.TokenType.DOT:
             self.advance()
             node = res.register(self.attribute_access(node))
-            if res.error:
-                return res
+            if res.error or node == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid attribute access"))
 
         return res.success(node)
 
@@ -489,8 +500,8 @@ class Parser:
 
         if self.current_token.type == TritiumData.TokenType.PAREN and self.current_token.value == "(":
             var function_call_node = res.register(self.function_call(attribute_name))
-            if res.error:
-                return res
+            if res.error or function_call_node == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid function call in attribute access"))
             return res.success(TritiumAST.AttributeAccessNode.new(left, function_call_node))
 
         return res.success(TritiumAST.AttributeAccessNode.new(left, TritiumAST.VarAccessNode.new(attribute_name)))
@@ -521,4 +532,7 @@ static func parse(lexed_result: TritiumData.LexerResult) -> TritiumData.ParseRes
     if lexed_result.error:
         return TritiumData.ParseResult.new().failure(TritiumAST.InvalidSyntaxError.new(lexed_result.line, "Invalid Token Error"))
     var parser = Parser.new(lexed_result.tokens)
-    return parser.parse()
+    var result = parser.parse()
+    if result.error or result.node == null:
+        return TritiumData.ParseResult.new().failure(TritiumAST.InvalidSyntaxError.new(lexed_result.line, "Invalid or empty AST"))
+    return result

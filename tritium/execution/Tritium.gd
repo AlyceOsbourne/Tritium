@@ -65,13 +65,6 @@ func evaluate(
     meta.emit(meta_data)
     started.emit(code)
 
-    if _settings.bound_variables.has("mech"):
-        var mech = settings.bound_variables["mech"]
-        for egg in easter_eggs:
-            if egg.call(mech):
-                print("Easter Egg Found: " + mech.name)
-                easter_eggs[egg].call(_settings)
-
     var result = Interpreter.interpret(parsed, _settings, meta_data)
 
     if result.error:

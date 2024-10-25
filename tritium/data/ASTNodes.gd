@@ -1,8 +1,8 @@
 class_name TritiumAST
 
 class ASTNode:
-    pass
-
+    func to_dict():
+        return {}
 
 class UnaryOpNode extends ASTNode:
     func _init(op_token, operand):
@@ -122,7 +122,7 @@ class ReturnNode extends ASTNode:
     func to_dict() -> Dictionary:
         return {
             "type": "ReturnNode",
-            "expr": self.expr.to_dict()
+            "expr": self.expr.to_dict() if self.expr else ASTNode.new()
         }
 
     var expr: ASTNode
@@ -183,7 +183,7 @@ class ComparisonNode extends ASTNode:
         return {
             "type": "ComparisonNode",
             "left": self.left.to_dict(),
-            "op_token": self.comparison_token.value,
+            "op_token": self.op_token.value,
             "right": self.right.to_dict()
         }
 

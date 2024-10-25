@@ -1,9 +1,12 @@
 class_name Interpreter extends Resource
 
+
+
 var settings: InterpreterSettings
 
 var global_scope = {}
 var functions = {}
+
 
 var visitors = {
     (func(node): return node is TritiumAST.FunctionCallNode): visit_function_call,
@@ -22,7 +25,8 @@ var visitors = {
     (func(node): return node is TritiumAST.DataStructureNode): visit_data_structure,
     (func(node): return node is TritiumAST.ForLoopNode): visit_for_loop,
     (func(node): return node is TritiumAST.BreakNode): visit_break,
-    (func(node): return node is TritiumAST.ContinueNode): visit_continue
+    (func(node): return node is TritiumAST.ContinueNode): visit_continue,
+    (func(node): return node == null): func(x): return TritiumData.InterpreterResult.new(null)
 }
 
 var ops = {
@@ -52,9 +56,9 @@ var ops = {
         else:
             return error("Type Error: Both operands must be numbers"),
 
-    "==": func(a, b):return success(a == b),
+    "==": func(a, b):return success(typeof(a) == typeof(b) and a == b),
 
-    "!=": func(a, b): return success(a != b),
+    "!=": func(a, b): return success(typeof(a) == typeof(b) and a != b),
 
     "<": func(a, b):
         if (typeof(a) in [TYPE_INT, TYPE_FLOAT]) and (typeof(b) in [TYPE_INT, TYPE_FLOAT]) or typeof(a) == typeof(b):
@@ -97,6 +101,7 @@ func visit(node: TritiumAST.ASTNode) -> TritiumData.InterpreterResult:
 
 func _init(settings: InterpreterSettings = InterpreterSettings.new()):
     self.settings = settings
+    OpCodes
 
 func visit_function_call(node: TritiumAST.FunctionCallNode) -> TritiumData.InterpreterResult:
     var func_name = node.func_name.value
@@ -233,20 +238,32 @@ func visit_for_loop(node: TritiumAST.ForLoopNode) -> TritiumData.InterpreterResu
         return iterable_result
 
     var iterable = iterable_result.value
-    if typeof(iterable) != TYPE_ARRAY:
-        return error("For loop iterable must be an array")
+    if typeof(iterable) == TYPE_ARRAY:
+        for element in iterable:
+            var local_scope = global_scope.duplicate()
+            local_scope[node.identifier.var_name.value] = element
 
-    for element in iterable:
-        var local_scope = global_scope.duplicate()
-        local_scope[node.identifier.var_name.value] = element
+            var result = execute_block_with_scope(node.body, local_scope)
+            if result.is_error():
+                return result
+            if result.value == "break":
+                break
+            if result.value == "continue":
+                continue
+    elif typeof(iterable) in [TYPE_INT, TYPE_FLOAT]:
+        for i in range(int(iterable)):
+            var local_scope = global_scope.duplicate()
+            local_scope[node.identifier.var_name.value] = i
 
-        var result = execute_block_with_scope(node.body, local_scope)
-        if result.is_error():
-            return result
-        if result.value == "break":
-            break
-        if result.value == "continue":
-            continue
+            var result = execute_block_with_scope(node.body, local_scope)
+            if result.is_error():
+                return result
+            if result.value == "break":
+                break
+            if result.value == "continue":
+                continue
+    else:
+        return error("For loop iterable must be an array or a number")
 
     return success(null)
 

@@ -71,6 +71,13 @@ static func tokenize(code: String) -> TritiumData.LexerResult:
             tokens.append(token)
             continue
 
+        if is_logical_operator(code, current):
+            var result = handle_logical_operator(code, current, line)
+            current = result[0]
+            var token = result[1]
+            tokens.append(token)
+            continue
+
         if is_paren(char):
             tokens.append(TritiumData.Token.new(TritiumData.TokenType.PAREN, char, line))
             current += 1
@@ -210,6 +217,20 @@ static func handle_comparison_operator(code: String, current: int, line: int) ->
 
     var single_char = code[current]
     return [current + 1, TritiumData.Token.new(TritiumData.TokenType.COMPARISON, single_char, line)]
+
+static func is_logical_operator(code: String, current: int) -> bool:
+    if current + 1 < code.length():
+        var sub = code.substr(current, 2)
+        if sub in ["or", "||"]:
+            return true
+    return false
+
+static func handle_logical_operator(code: String, current: int, line: int) -> Array:
+    if current + 1 < code.length():
+        var sub = code.substr(current, 2)
+        if sub in ["or", "||"]:
+            return [current + 2, TritiumData.Token.new(TritiumData.TokenType.LOGICAL_OPERATOR, sub, line)]
+    return [current, null]
 
 static func is_paren(char: String) -> bool:
     return char in ["(", ")"]
