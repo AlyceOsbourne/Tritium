@@ -1,11 +1,33 @@
 class_name Interpreter extends Resource
 
+class Env:
+    @export_storage var settings: InterpreterSettings
+    @export_storage var global_scope = {}
+    @export_storage var functions = {}
 
+    func enter_scope(callable: Callable, args: Array = [], local_scope: Dictionary = {}, local_functions: Dictionary = {}):
+        var old_scope = global_scope.duplicate(true)
+        var old_functions = functions.duplicate(true)
 
-var settings: InterpreterSettings
+        global_scope.merge(local_scope, true)
+        functions.merge(local_functions, true)
 
-var global_scope = {}
-var functions = {}
+        # Add any functions passed in args to the scope
+        for key in local_scope.keys():
+            if local_scope[key] is TritiumAST.FunctionDefNode:
+                functions[key] = local_scope[key]
+
+        var res = callable.callv(args)
+
+        global_scope = old_scope
+        functions = old_functions
+
+        return res
+
+    func _init(settings: InterpreterSettings, global_scope = {}, global_functions = {}):
+        self.settings = settings
+        self.global_scope = global_scope
+        self.functions = global_functions
 
 
 var visitors = {
@@ -29,7 +51,7 @@ var visitors = {
     (func(node): return node == null): func(x): return TritiumData.InterpreterResult.new(null)
 }
 
-var ops = {
+static var ops = {
     "+": func(a, b):
         if (typeof(a) in [TYPE_INT, TYPE_FLOAT]) and (typeof(b) in [TYPE_INT, TYPE_FLOAT]) or typeof(a) == typeof(b):
             return success(a + b)
@@ -56,7 +78,7 @@ var ops = {
         else:
             return error("Type Error: Both operands must be numbers"),
 
-    "==": func(a, b):return success(typeof(a) == typeof(b) and a == b),
+    "==": func(a, b): return success(typeof(a) == typeof(b) and a == b),
 
     "!=": func(a, b): return success(typeof(a) == typeof(b) and a != b),
 
@@ -85,7 +107,7 @@ var ops = {
             return error("Type Error: Both operands must be numbers")
 }
 
-var unary_ops = {
+static var unary_ops = {
     "-": func(a):
         if typeof(a) in [TYPE_INT, TYPE_FLOAT]:
             return success(-a)
@@ -93,26 +115,27 @@ var unary_ops = {
             return error("Type Error: Operand must be a number")
 }
 
+var env: Env
+
+func _init(settings: InterpreterSettings = InterpreterSettings.new()):
+    self.env = Env.new(settings)
+
 func visit(node: TritiumAST.ASTNode) -> TritiumData.InterpreterResult:
     for rule in visitors:
         if rule.call(node):
             return visitors[rule].call(node)
     return error("Unsupported TritiumData node type: %s" % node)
 
-func _init(settings: InterpreterSettings = InterpreterSettings.new()):
-    self.settings = settings
-    OpCodes
-
 func visit_function_call(node: TritiumAST.FunctionCallNode) -> TritiumData.InterpreterResult:
     var func_name = node.func_name.value
 
-    if settings.bound_functions.has(func_name):
+    if env.settings.bound_functions.has(func_name):
         return call_bound_function(func_name, node.args)
 
-    if not functions.has(func_name):
+    if not env.functions.has(func_name):
         return error("Undefined function: %s" % func_name)
 
-    var function_def = functions[func_name]
+    var function_def = env.functions[func_name]
     if function_def.arg_names.size() != node.args.size():
         return error("Function call argument mismatch for %s" % func_name)
 
@@ -123,6 +146,10 @@ func visit_function_call(node: TritiumAST.FunctionCallNode) -> TritiumData.Inter
             return arg_result
         local_scope[function_def.arg_names[i].value] = arg_result.value
 
+        # If the argument is a function, add it to the functions scope
+        if arg_result.value is TritiumAST.FunctionDefNode:
+            env.functions[function_def.arg_names[i].value] = arg_result.value
+
     return execute_function(function_def, local_scope)
 
 func call_bound_function(func_name: String, args: Array) -> TritiumData.InterpreterResult:
@@ -132,7 +159,7 @@ func call_bound_function(func_name: String, args: Array) -> TritiumData.Interpre
         if arg_result.is_error():
             return arg_result
         evaluated_args.append(arg_result.value)
-    return settings.call_function(func_name, evaluated_args)
+    return env.settings.call_function(func_name, evaluated_args)
 
 func visit_bin_or_comparison(node: TritiumAST.ASTNode) -> TritiumData.InterpreterResult:
     var left_result = visit(node.left)
@@ -161,7 +188,7 @@ func visit_assignment(node: TritiumAST.AssignmentNode) -> TritiumData.Interprete
     var value_result = visit(node.expr)
     if value_result.is_error():
         return value_result
-    global_scope[node.var_name.value] = value_result.value
+    env.global_scope[node.var_name.value] = value_result.value
     return value_result
 
 func visit_statements(node: TritiumAST.StatementsNode) -> TritiumData.InterpreterResult:
@@ -175,7 +202,8 @@ func visit_statements(node: TritiumAST.StatementsNode) -> TritiumData.Interprete
     return success(null)
 
 func visit_function_def(node: TritiumAST.FunctionDefNode) -> TritiumData.InterpreterResult:
-    functions[node.func_name.value] = node
+    env.global_scope[node.func_name.value] = node
+    env.functions[node.func_name.value] = node
     return success(null)
 
 func visit_return(node: TritiumAST.ReturnNode) -> TritiumData.InterpreterResult:
@@ -185,12 +213,15 @@ func visit_var_access(node: TritiumAST.VarAccessNode) -> TritiumData.Interpreter
     return get_variable_value(node.var_name.value)
 
 func get_variable_value(var_name: String) -> TritiumData.InterpreterResult:
-    if settings.bound_properties.has(var_name):
-        return settings.get_property(var_name)
-    if settings.bound_variables.has(var_name):
-        return settings.get_variable(var_name)
-    if global_scope.has(var_name):
-        return success(global_scope[var_name])
+    if env.settings.bound_properties.has(var_name):
+        return env.settings.get_property(var_name)
+    if env.settings.bound_variables.has(var_name):
+        return env.settings.get_variable(var_name)
+    if env.global_scope.has(var_name):
+        var value = env.global_scope[var_name]
+        if value is TritiumAST.FunctionDefNode:
+            return success(value)
+        return success(env.global_scope[var_name])
     return error("Undefined variable: %s" % var_name)
 
 func visit_number(node: TritiumAST.NumberNode) -> TritiumData.InterpreterResult:
@@ -240,22 +271,20 @@ func visit_for_loop(node: TritiumAST.ForLoopNode) -> TritiumData.InterpreterResu
     var iterable = iterable_result.value
     if typeof(iterable) == TYPE_ARRAY:
         for element in iterable:
-            var local_scope = global_scope.duplicate()
-            local_scope[node.identifier.var_name.value] = element
-
-            var result = execute_block_with_scope(node.body, local_scope)
+            var result = execute_block_with_scope(
+                node.body,
+                {node.identifier.var_name.value: element}
+            )
             if result.is_error():
                 return result
             if result.value == "break":
                 break
             if result.value == "continue":
                 continue
+
     elif typeof(iterable) in [TYPE_INT, TYPE_FLOAT]:
         for i in range(int(iterable)):
-            var local_scope = global_scope.duplicate()
-            local_scope[node.identifier.var_name.value] = i
-
-            var result = execute_block_with_scope(node.body, local_scope)
+            var result = execute_block_with_scope(node.body, {node.identifier.var_name.value: i})
             if result.is_error():
                 return result
             if result.value == "break":
@@ -362,34 +391,24 @@ func get_attribute_value(left_value: Variant, attribute_name: String) -> Tritium
     return error("Undefined attribute: %s" % attribute_name)
 
 func execute_function(function_def: TritiumAST.FunctionDefNode, local_scope: Dictionary) -> TritiumData.InterpreterResult:
-    var old_global_scope = global_scope
-    global_scope = global_scope.duplicate()
-    global_scope.merge(local_scope)
-    var result = visit(function_def.body)
-    global_scope = old_global_scope
-
-    return result
+    return env.enter_scope(visit, [function_def.body], local_scope)
 
 func execute_block_with_scope(body: TritiumAST.StatementsNode, local_scope: Dictionary) -> TritiumData.InterpreterResult:
-    var old_global_scope = global_scope
-    global_scope = local_scope
-    var result = visit(body)
-    global_scope = old_global_scope
-    return result
+    return env.enter_scope(visit, [body], local_scope)
 
-func _interpret(ast: TritiumAST.ASTNode, main_args={}) -> TritiumData.InterpreterResult:
+func _interpret(ast: TritiumAST.ASTNode, main_args = {}) -> TritiumData.InterpreterResult:
     var result = visit(ast)
     if result.is_error():
         return result
 
-    var main_func = functions.get("main", null)
+    var main_func = env.functions.get("main", null)
     if main_func == null:
         return error("No 'main' function defined")
 
     return execute_function(main_func, main_args)
 
 func _to_string() -> String:
-    return "NodeVisitor(global_scope: %s, functions: %s)" % [str(global_scope), str(functions)]
+    return "NodeVisitor(global_scope: %s, functions: %s)" % [str(env.global_scope), str(env.functions)]
 
 static func error(error_msg: String) -> TritiumData.InterpreterResult:
     return TritiumData.InterpreterResult.new(null, error_msg)
@@ -397,7 +416,7 @@ static func error(error_msg: String) -> TritiumData.InterpreterResult:
 static func success(value: Variant) -> TritiumData.InterpreterResult:
     return TritiumData.InterpreterResult.new(value)
 
-static func interpret(parse_result: TritiumData.ParseResult, settings: InterpreterSettings, global_vars={}) -> TritiumData.InterpreterResult:
+static func interpret(parse_result: TritiumData.ParseResult, settings: InterpreterSettings, global_vars = {}) -> TritiumData.InterpreterResult:
     if parse_result.error:
         return error("Parsing error: %s" % parse_result.error)
     return new(settings)._interpret(parse_result.node, global_vars)

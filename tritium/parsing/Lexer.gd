@@ -1,23 +1,5 @@
 class_name Lexer
 
-#
-#x = 10;
-#y = 20;
-#
-#fn mult(a, b){
-    #return a * b;
-#}
-#
-#fn main(){
-    #print("Entered main")
-
-    #if x < y {
-        #return mult(x, y);
-    #}
-    #return y
-#}
-
-
 static func tokenize(code: String) -> TritiumData.LexerResult:
     var tokens: Array[TritiumData.Token] = []
     var current = 0
@@ -152,8 +134,6 @@ static func tokenize(code: String) -> TritiumData.LexerResult:
             continue
 
         return TritiumData.LexerResult.new(tokens, "Unknown token at line %d" % line, line)
-
-        current += 1
 
     tokens.append(TritiumData.Token.new(TritiumData.TokenType.EOF, "", line))
     return TritiumData.LexerResult.new(tokens, "", line)
@@ -342,7 +322,6 @@ static func handle_break_or_continue_keyword(code: String, current: int, line: i
         if code.substr(current, keyword.length()) == keyword:
             return [current + keyword.length(), TritiumData.Token.new(keywords[keyword], keyword, line)]
     return [current, null]
-
 
 static func handle_string(code: String, current: int, line: int) -> Array:
     var string_delimiter = code[current]

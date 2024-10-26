@@ -11,16 +11,17 @@ signal stdout(string: String)
 signal stderr(string: String)
 signal complete(result: TritiumData)
 
-var easter_eggs = {
-    func(mech): return uwu.uwucrew.has(mech.name): func(settings: InterpreterSettings): settings.bind_module(load("res://tritium/bindings/eggs/uwu.gd")),
-    func(mech): return godoblins.godoblins.has(mech.name): func(settings: InterpreterSettings): settings.bind_module(load("res://tritium/bindings/eggs/arr.gd")),
-    func(mech): return cthulhubots.cthulhucrew.has(mech.name): func(settings: InterpreterSettings): settings.bind_module(load("res://tritium/bindings/eggs/cthulhu.gd")),
-}
+
+var _mutex = Mutex.new()
 
 func evaluate(
         code: String,
-        meta_data: Dictionary={a=1},
+        meta_data: Dictionary={},
+        easter_eggs := {}
     ):
+
+    if not _mutex.try_lock():
+        return
 
     var lexed = Lexer.tokenize(code)
     tokens.emit(lexed.tokens)
@@ -53,7 +54,7 @@ func evaluate(
             globals_dict[k] = true
 
         var globals: Array[String]
-        globals.assign(globals_dict.keys()  )
+        globals.assign(globals_dict.keys())
         globals.sort()
         return "\n".join(globals)
     )
@@ -62,7 +63,12 @@ func evaluate(
     _settings.bind_function("load", get_meta)
     _settings.bind_function("storage", get_meta_list)
 
+    for egg in easter_eggs:
+        if egg.call(_settings):
+            easter_eggs[egg].call(_settings)
+
     meta.emit(meta_data)
+
     started.emit(code)
 
     var result = Interpreter.interpret(parsed, _settings, meta_data)
@@ -72,19 +78,12 @@ func evaluate(
     elif result.value != null:
         stdout.emit.call_deferred("Ran and returned: " + str(result.value) + "\n")
     else:
-        stdout.emit("Ran without error.\n")
+        stdout.emit.call_deferred("Ran without error.\n")
     complete.emit.call_deferred(result)
+
+    _mutex.unlock()
     return result
 
-func execute_file(path: String, meta_data:={}):
-    path = "user://tritium/%s.txt" % path
-    if FileAccess.file_exists(path):
-        var tritium: Tritium = self.duplicate(true)
-        for listener_group: Signal in [started, stdout, stderr]:
-            for conn in listener_group.get_connections():
-                tritium.connect(listener_group.get_name(), conn["callable"])
-        return tritium.evaluate(FileAccess.get_file_as_string(path), meta_data)
-    return TritiumData.InterpreterResult.new(null, "File does not exist")
 
 func _to_string() -> String:
     return "Tritium"

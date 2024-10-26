@@ -96,7 +96,7 @@ class FunctionCallNode extends ASTNode:
 
 class FunctionDefNode extends ASTNode:
     func _to_string() -> String:
-        return "def %s(%s):\n  %s" % [self.func_name.value, ", ".join(self.arg_names.map(str)), self.body._to_string()]
+        return "%s(%s)" % [self.func_name.value, ", ".join(self.arg_names.map(str))]
 
     func to_dict() -> Dictionary:
         return {
@@ -299,21 +299,21 @@ class AttributeAccessNode extends ASTNode:
 
 class InvalidSyntaxError extends ASTNode:
     func _to_string() -> String:
-        return "SyntaxError: %s" % [self.message]
+        return "SyntaxError: %s" % [self.error]
 
     func to_dict() -> Dictionary:
         return {
             "type": "InvalidSyntaxError",
             "line": self.line,
-            "message": self.message
+            "message": self.error
         }
 
     var line: int
-    var message: String
+    var error: String
 
-    func _init(line: int, message: String):
+    func _init(line: int, error: String):
         self.line = line
-        self.message = "Syntax error on line %d: %s" % [line, message]
+        self.error = "Syntax error on line %d: %s" % [line, error]
 
 class DataStructureNode extends ASTNode:
     func _to_string() -> String:

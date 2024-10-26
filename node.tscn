@@ -1,0 +1,92 @@
+[gd_scene load_steps=2 format=3 uid="uid://d30ps2b2qjuvv"]
+
+[sub_resource type="GDScript" id="GDScript_4alx8"]
+script/source = "class_name BrainfuckInterpreter
+extends Node
+
+@export var code = \"++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.\"
+var code_pointer = 0
+var tape = []
+var tape_pointer = 0
+var input = []
+var output = \"\"
+
+func _init():
+    tape.resize(30000)
+    for i in range(30000):
+        tape[i] = 0
+
+func _ready():
+    print(run_code(code))
+
+func run_code(input_code: String):
+    code_pointer = 0
+    tape_pointer = 0
+    output = \"\"
+
+    while code_pointer < code.length():
+        match code[code_pointer]:
+            '+': increment_data()
+            '-': decrement_data()
+            '>': increment_pointer()
+            '<': decrement_pointer()
+            '[': jump_forward()
+            ']': jump_backward()
+            '.': output_data()
+            ',': tape[tape_pointer] = input
+        code_pointer += 1
+
+    return output
+
+func increment_data():
+    tape[tape_pointer] = (tape[tape_pointer] + 1) % 256
+
+func decrement_data():
+    tape[tape_pointer] = (tape[tape_pointer] - 1) % 256
+
+func increment_pointer():
+    tape_pointer += 1
+    if tape_pointer >= tape.size():
+        tape.resize(tape.size() + 30000)
+
+func decrement_pointer():
+    tape_pointer = max(0, tape_pointer - 1)
+
+
+func jump_forward():
+    if tape[tape_pointer] == 0:
+        var open_brackets = 1
+        while open_brackets > 0:
+            code_pointer += 1
+            if code_pointer >= code.length():
+                push_error(\"Unmatched [ in code.\")
+                return
+            if code[code_pointer] == \"[\":
+                open_brackets += 1
+            elif code[code_pointer] == \"]\":
+                open_brackets -= 1
+
+func jump_backward():
+    if tape[tape_pointer] != 0:
+        var close_brackets = 1
+        while close_brackets > 0:
+            code_pointer -= 1
+            if code_pointer < 0:
+                push_error(\"Unmatched ] in code.\")
+                return
+            if code[code_pointer] == \"[\":
+                close_brackets -= 1
+            elif code[code_pointer] == \"]\":
+                close_brackets += 1
+
+
+func output_data():
+    output += char(tape[tape_pointer])
+
+func push_error(error_message: String):
+    print(\"Error: \", error_message)
+    code_pointer = code.length()
+"
+
+[node name="Node" type="Node"]
+script = SubResource("GDScript_4alx8")

@@ -33,7 +33,8 @@ func bind_variable(variable_name: String, variable: Variant):
 
 func get_variable(variable_name: String):
     if bound_variables.has(variable_name):
-        return Interpreter.success(bound_variables[variable_name])
+        var v = bound_variables[variable_name]
+        return Interpreter.success(v)
     return Interpreter.error("Undefined variable: %s" % variable_name)
 
 func bind_property(property_name: String, callable: Callable):

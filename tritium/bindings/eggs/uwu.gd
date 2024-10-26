@@ -1,7 +1,7 @@
 class_name uwu
 
 static func bind(interpreter_settings: InterpreterSettings):
-    interpreter_settings.bind_function("except", func(x = null  ): return TritiumData.InterpreterResult.new(null, uwufy_string(str(x) if x else "An unknown error has occured")))
+    interpreter_settings.bind_function("except", func(x = null): return TritiumData.InterpreterResult.new(null, uwufy_string(str(x) if x else "An unknown error has occured")))
     interpreter_settings.bind_function("assert", func(expression: bool, message: String = "Assertion failed"):
         if not expression:
             push_error(message)
@@ -11,8 +11,8 @@ static func bind(interpreter_settings: InterpreterSettings):
         interpreter_settings.bind_function("print", func(x, y="\n"): return _print.call(uwufy_string(str(x)), y))
 
     var _printerr = interpreter_settings.bound_functions.get("printerr")
-    if _print:
-        interpreter_settings.bind_function("printerr", func(x, y="\n"): return _printerr.call(uwufy_string(x), y))
+    if _printerr:
+        interpreter_settings.bind_function("printerr", func(x, y="\n"): return _printerr.call(uwufy_string(str(x)), y))
 
 
 static func uwufy_string(text: String) -> String:
@@ -198,7 +198,6 @@ static func uwufy_string(text: String) -> String:
 
 const uwucrew = [
         "Bity",
-        "Bitlytic",
         "Jwduth",
         "Hano",
         "kollyr",

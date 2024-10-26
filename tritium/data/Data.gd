@@ -12,7 +12,7 @@ class Token:
     var value: String
     var line: int
 
-    func _init(type: TokenType, value: String, line: int) -> void:
+    func _init(type: TokenType, value: String="", line: int=-1) -> void:
         self.type = type
         self.value = value
         self.line = line
@@ -72,6 +72,7 @@ class InterpreterResult:
         self.value = value
         self.error = error
 
+
     func is_error() -> bool:
         return error != ""
 
@@ -80,3 +81,20 @@ class InterpreterResult:
             "value" if not error else "error",
             str(value) if not error else str(error)
         ]
+
+class BytecodeResult:
+    var value: Variant
+    var error_msg: String
+
+    func _init(val: Variant = null, err_msg: String = ""):
+        value = val
+        error_msg = err_msg
+
+    func is_error() -> bool:
+        return error_msg != ""
+
+    func _to_string() -> String:
+        if is_error():
+            return "Error: %s" % error_msg
+        else:
+            return "Result: %s" % str(value)

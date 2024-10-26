@@ -10,6 +10,10 @@ static func bind(interpreter_settings: InterpreterSettings):
     if _print:
         interpreter_settings.bind_function("print", func(x, y="\n"): return _print.call(goblinify_string(str(x)), y))
 
+    var _printerr = interpreter_settings.bound_functions.get("printerr")
+    if _printerr:
+        interpreter_settings.bind_function("printerr", func(x, y="\n"): return _printerr.call(goblinify_string(str(x)), y))
+
 
 
 static func goblinify_string(text: String) -> String:
@@ -192,5 +196,6 @@ const godoblins = [
     "LastElf",
     "Melonyyy!",
     "lagmaister",
-    "Ako"
+    "Ako",
+    "Bitlytic",
 ]

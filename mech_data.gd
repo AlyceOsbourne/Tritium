@@ -1,11 +1,21 @@
 class_name MechData
-extends Object
 
 class Data:
     var _data: MechData
 
     func _init(mech_data: MechData) -> void:
         self._data = mech_data
+
+    func _set(property: StringName, value: Variant) -> bool:
+        if self[property] is float and is_equal_approx(self[property], value):
+            return true
+        elif self[property] == value:
+            return true
+
+        self[property] == value
+        _data.data_updated.emit.call_deferred()
+
+        return true
 
 class BasicProperties extends Data:
     @export var name: String = "Clunker V1"
@@ -207,17 +217,15 @@ signal data_updated
 
 var debug: bool = false
 
-var basic_properties: BasicProperties = BasicProperties.new(self)
-var chassis_properties: ChassisProperties = ChassisProperties.new(self)
-var state_properties: StateProperties = StateProperties.new(self)
-var sensor_and_tools: SensorAndTools = SensorAndTools.new(self)
+var system: BasicProperties = BasicProperties.new(self)
+var chassis: ChassisProperties = ChassisProperties.new(self)
+var state: StateProperties = StateProperties.new(self)
+var equipment: SensorAndTools = SensorAndTools.new(self)
 var upgrades: Upgrades = Upgrades.new(self)
-var combat_properties: CombatProperties = CombatProperties.new(self)
-var performance_properties: PerformanceProperties = PerformanceProperties.new(self)
+var combat: CombatProperties = CombatProperties.new(self)
+var performance: PerformanceProperties = PerformanceProperties.new(self)
 
-@export_multiline var _code: String = """
-
-# Mecha boot script
+@export_multiline var _code: String = """# Mecha boot script
 
 fn main(){
     if(mech.debug){
@@ -227,77 +235,79 @@ fn main(){
 }
 
 fn power_systems_check() {
-    assert(mech.basic_properties.power > 0, "Mech is out of power.")
-    if (mech.basic_properties.power < 0.3) {printerr("Mech power reserves low.")}
-    assert(mech.state_properties.current_state != MechState.DISABLED)
+    assert(mech.system.power, "Mech is out of power.")
+    if (mech.system.power < 0.3) {printerr("Mech power reserves low.")}
+    assert(mech.state.current_state != MechState.DISABLED)
 }
 
 fn safety_systems_check() {
-    assert(mech.basic_properties.integrity > 0, "Mech requires urgent maintenance.")
-    if (mech.basic_properties.integrity < 0.3) {printerr("Mech integrity low.")}
-    assert(mech.basic_properties.temperature < 100, "Mech is overheated.")
-    if (mech.basic_properties.temperature > 80) {printerr("Mech temperature nearing critical levels.")}
-    assert(mech.basic_properties.temperature > 0, "Mech is frozen.")
+    assert(mech.system.integrity > 0, "Mech requires urgent maintenance.")
+    if (mech.system.integrity < 0.3) {printerr("Mech integrity low.")}
+    assert(mech.system.temperature < 100, "Mech is overheated.")
+    if (mech.system.temperature > 80) {printerr("Mech temperature nearing critical levels.")}
+    assert(mech.system.temperature > 0, "Mech is frozen.")
 }
 
 fn chassis_check() {
-    assert(mech.chassis_properties.chassis_weight <= mech.chassis_properties.chassis_max_weight, "Mech is overweight.")
-    if (mech.chassis_properties.chassis_weight > (mech.chassis_properties.chassis_max_weight * 0.8)) {print("Mech is reaching weight limits.")}
+    assert(mech.chassis.chassis_weight <= mech.chassis.chassis_max_weight, "Mech is overweight.")
+    if (mech.chassis.chassis_weight > (mech.chassis.chassis_max_weight * 0.8)) {print("Mech is reaching weight limits.")}
 }
 
 fn equipment_check() {
-    assert(mech.sensor_and_tools.sensor != Sensor.NONE, "Mech has no sensor equipped.")
-    if (mech.sensor_and_tools.left_tool == Tool.NONE) {printerr("Warning: Mech has no left tool equipped.")}
-    if (mech.sensor_and_tools.right_tool == Tool.NONE) {printerr("Warning: Mech has no right tool equipped.")}
+    assert(mech.equipment.sensor != Sensor.NONE, "Mech has no sensor equipped.")
+    if (mech.equipment.left_tool == Tool.NONE) {printerr("Warning: Mech has no left tool equipped.")}
+    if (mech.equipment.right_tool == Tool.NONE) {printerr("Warning: Mech has no right tool equipped.")}
 }
 
 fn systems_check() {
-    print("Running checks for: " + mech.basic_properties.name)
+    print("Running checks for: " + mech.system.name)
 
-    power_systems_check()
-    safety_systems_check()
-    chassis_check()
-    equipment_check()
+    for (check in [
+        power_systems_check,
+        safety_systems_check,
+        chassis_check,
+        equipment_check
+    ]){
+        check()
+    }
 
     print("All Systems Nominal. Can proceed with mission.")
-}
-"""
+}"""
 
 func move_to(position: Vector2i):
-    basic_properties.mech_target = position
-    state_properties.current_state = MechState.MOVING
-    data_updated.emit()
+    system.mech_target = position
+    state.current_state = MechState.MOVING
+    data_updated.emit.call_deferred()
 
 func engage_combat():
-    state_properties.current_state = MechState.COMBAT
-    data_updated.emit()
+    state.current_state = MechState.COMBAT
 
 func disable_mech():
-    state_properties.current_state = MechState.DISABLED
-    data_updated.emit()
+    state.current_state = MechState.DISABLED
+    data_updated.emit.call_deferred()
 
 func start_mech():
-    state_properties.current_state = MechState.IDLE
-    data_updated.emit()
+    state.current_state = MechState.IDLE
+    data_updated.emit.call_deferred()
 
 func set_mech_name(name: String):
-    basic_properties.name = name
-    data_updated.emit()
+    if name != system.name:
+        system.name = name
+        data_updated.emit.call_deferred()
 
 func discard_weapon():
-    combat_properties.weapon_type = WeaponType.NONE
-    combat_properties.ammo_type = AmmoType.NONE
-    data_updated.emit()
+    combat.weapon_type = WeaponType.NONE
+    combat.ammo_type = AmmoType.NONE
+    data_updated.emit.call_deferred()
 
 func _to_string() -> String:
     var display: String = ""
     display += "MECH STATUS \n"
-    display += "Power Level: %.2f\n" % basic_properties.power
-    display += "Integrity: %.2f\n" % basic_properties.integrity
-    display += "Temperature: %.2f°C\n" % basic_properties.temperature
-    display += "Current State: %s\n" % str(MechState.find_key(state_properties.current_state))
-    display += "Energy: %d\n" % basic_properties.energy
-    display += "Role: %s\n" % str(MechRole.find_key(state_properties.role))
+    display += "Power Level: %.2f\n" % system.power
+    display += "Integrity: %.2f\n" % system.integrity
+    display += "Temperature: %.2f°C\n" % system.temperature
+    display += "Current State: %s\n" % str(MechState.find_key(state.current_state))
+    display += "Role: %s\n" % str(MechRole.find_key(state.role))
     display += "Building Upgrades: %s\n" % str(BuildingUpgrade.find_key(upgrades.building_upgrades))
     display += "Farming Upgrades: %s\n" % str(FarmingUpgrade.find_key(upgrades.farming_upgrades))
     display += "Mining Upgrades: %s\n" % str(MiningUpgrade.find_key(upgrades.mining_upgrades))
@@ -306,17 +316,17 @@ func _to_string() -> String:
     display += "Maintenance Upgrades: %s\n" % str(MaintenanceUpgrade.find_key(upgrades.maintenance_upgrades))
     display += "Combat Upgrades: %s\n" % str(CombatUpgrade.find_key(upgrades.combat_upgrades))
     display += "Exploration Upgrades: %s\n" % str(ExplorationUpgrade.find_key(upgrades.exploration_upgrades))
-    display += "Chassis Type: %s\n" % str(ChassisType.find_key(chassis_properties.chassis_type))
-    display += "Arm Type: %s\n" % str(ArmType.find_key(chassis_properties.arm_type))
-    display += "Legs Type: %s\n" % str(LegsType.find_key(chassis_properties.legs_type))
-    display += "Head Type: %s\n" % str(HeadType.find_key(chassis_properties.head_type))
-    display += "Weapon Type: %s\n" % str(WeaponType.find_key(combat_properties.weapon_type))
-    display += "Ammo Type: %s\n" % str(AmmoType.find_key(combat_properties.ammo_type))
-    display += "Speed: %.2f\n" % performance_properties.speed
-    display += "Armor: %.2f\n" % performance_properties.armor
-    display += "Agility: %.2f\n" % performance_properties.agility
-    display += "Left Tool: %s\n" % str(Tool.find_key(sensor_and_tools.left_tool))
-    display += "Right Tool: %s\n" % str(Tool.find_key(sensor_and_tools.right_tool))
+    display += "Chassis Type: %s\n" % str(ChassisType.find_key(chassis.chassis_type))
+    display += "Arm Type: %s\n" % str(ArmType.find_key(chassis.arm_type))
+    display += "Legs Type: %s\n" % str(LegsType.find_key(chassis.legs_type))
+    display += "Head Type: %s\n" % str(HeadType.find_key(chassis.head_type))
+    display += "Weapon Type: %s\n" % str(WeaponType.find_key(combat.weapon_type))
+    display += "Ammo Type: %s\n" % str(AmmoType.find_key(combat.ammo_type))
+    display += "Speed: %.2f\n" % performance.speed
+    display += "Armor: %.2f\n" % performance.armor
+    display += "Agility: %.2f\n" % performance.agility
+    display += "Left Tool: %s\n" % str(Tool.find_key(equipment.left_tool))
+    display += "Right Tool: %s\n" % str(Tool.find_key(equipment.right_tool))
     return display
 
 func _bind(settings: InterpreterSettings):

@@ -4,11 +4,13 @@
 number_color = Color(0.844055, 0.255881, 1.92523e-07, 1)
 symbol_color = Color(1, 1, 1, 1)
 function_color = Color(0, 0.862745, 0.870588, 1)
-member_variable_color = Color(0.349735, 0.45253, 0.656703, 1)
+member_variable_color = Color(0.822462, 8.66354e-07, 0.430459, 1)
 keyword_colors = {
 "FAIL": Color(1, 0, 0, 1),
 "OK": Color(0, 1, 0, 1),
+"else": Color(0, 0.862745, 0.870588, 1),
 "fn": Color(0.786916, 0.0004815, 0.78691, 1),
+"import": Color(0.886142, 0.521515, 0.248353, 1),
 "return": Color(0.786916, 0.0004815, 0.78691, 1)
 }
 color_regions = {

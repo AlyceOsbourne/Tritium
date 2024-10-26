@@ -9,7 +9,6 @@
 [sub_resource type="GDScript" id="GDScript_4nd01"]
 script/source = "extends MarginContainer
 
-
 func _ready() -> void:
     await get_tree().create_timer(4).timeout
     await get_tree().create_tween().tween_property(self, ^\"modulate\", Color.WHITE, 1.5).finished
@@ -426,32 +425,34 @@ script/source = "extends Tree
 func _ready() -> void:
     editor.tritium.ast.connect(
         func(ast: TritiumData.ParseResult):
+            clear()
             if ast.error:
                 var err = create_item()
-                err.set_text(0, ast.error.message)
+                err.set_text(0, ast.error.error)
             else:
-                var tree = ast.node.to_dict()
-                build(tree)
+                var root = create_item()
+                root.set_text(0, \"Program\")
+                build(ast.node.to_dict(), root)
     )
 
-func build(data={}, root=null):
-    if not root:
-        root = create_item()
-        root.set_text(0, \"Program\")
+func build(data={}, root=null, visited = []):
+    if visited.has(data):
+        return
+    visited.append(data)
+
     if data is Array:
-        return build_tree_array(data, (root))
+        build_tree_array(data, (root))
     elif data is Dictionary:
-        return build_tree_dict(data, (root))
+        build_tree_dict(data, (root))
     elif data is TritiumAST.ASTNode:
-        return build(data.to_dict(), root)
+        build(data.to_dict(), root)
     else:
         root.set_text(1, str(data))
 
 func build_tree_dict(data: Dictionary, root):
-    var child
     root.set_text(1, \"{}\")
     for k in data:
-        child = create_item(root)
+        var child = create_item(root)
         child.set_text(0, str(k))
         build(data[k], child)
 

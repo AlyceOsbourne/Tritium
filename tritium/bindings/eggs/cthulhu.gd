@@ -14,7 +14,9 @@ static func bind(interpreter_settings: InterpreterSettings):
     var _print = interpreter_settings.bound_functions.get("print")
     if _print:
         interpreter_settings.bind_function("print", func(x, y="\n"): return _print.call(cthulhufy_string(x), y))
-
+    var _printerr = interpreter_settings.bound_functions.get("printerr")
+    if _print:
+        interpreter_settings.bind_function("printerr", func(x, y="\n"): return _printerr.call(cthulhufy_string(x), y))
 
 static func cthulhufy_string(text: String) -> String:
     var cthulhu_text = (
@@ -190,4 +192,4 @@ static func cthulhufy_string(text: String) -> String:
 
     cthulhu_text += custom_emojis[cthulhu_text.length() % custom_emojis.size()]
 
-    return cthulhu_text
+    return "[font=res://tritium/editor/Dignity of Labour.otf]%s[/font]" % cthulhu_text
