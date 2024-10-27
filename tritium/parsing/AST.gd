@@ -320,66 +320,129 @@ class Parser:
 
     func data_structure() -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
-        var elements = []
-        var data_type = ""
-
         if self.current_token.type == TritiumData.TokenType.SQUARE_OPEN:
-            data_type = "Array"
             self.advance()
+            return self.array_structure()
         elif self.current_token.type == TritiumData.TokenType.CURLY_OPEN:
-            data_type = "Set"
             self.advance()
+            return self.set_or_dict_structure()
         elif self.current_token.type == TritiumData.TokenType.PAREN:
-            data_type = "Tuple"
             self.advance()
+            return self.tuple_structure()
         else:
-            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '[' or '{' or '(' to start data structure. Ensure you are using the correct syntax."))
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '[', '{', or '(' to start data structure. Ensure you are using the correct syntax."))
 
-        var in_tuple = data_type == "Tuple"
-        var seen_comma = false
+    func array_structure() -> TritiumData.ParseResult:
+        var res = TritiumData.ParseResult.new()
+        var elements = []
 
-        while self.current_token.type not in [TritiumData.TokenType.SQUARE_CLOSE, TritiumData.TokenType.CURLY_CLOSE, TritiumData.TokenType.PAREN]:
+        while self.current_token.type != TritiumData.TokenType.SQUARE_CLOSE:
             var element = res.register(self.expression())
             if res.error or element == null:
-                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid element in data structure. Ensure all elements are properly defined."))
-
-            # If we're still assuming it's a set, but encounter a colon, change to dict
-            if data_type == "Set" and self.current_token.type == TritiumData.TokenType.COLON:
-                data_type = "Dict"
-                # We need to transform the current element into a dictionary key
-                var key = element
-
-                self.advance()  # Advance past the colon
-
-                var value = res.register(self.expression())
-                if res.error or value == null:
-                    return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid value in dictionary. Ensure the value is properly defined."))
-
-                elements.append(TritiumAST.Pair.new(key, value))
-
-            elif data_type == "Dict":
-                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Unexpected token in dictionary. Expected a key-value pair."))
-
-            else:
-                # It's a set or another collection type (array, tuple)
-                elements.append(element)
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid element in array. Ensure all elements are properly defined."))
+            elements.append(element)
 
             if self.current_token.type == TritiumData.TokenType.COMMA:
-                seen_comma = true
                 self.advance()
             else:
                 break
 
-        # Verify that we have the correct closing token for the current data type
-        if not self.expect_token(self.get_closing_token(data_type)):
-            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '%s' to close data structure." % self.get_closing_token(data_type)))
+        if not self.expect_token(TritiumData.TokenType.SQUARE_CLOSE):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ']' to close array."))
         self.advance()
 
-        # Handle tuple special case (single element without comma)
-        if in_tuple and not seen_comma and len(elements) == 1:
-            return res.success(elements[0])
+        return res.success(TritiumAST.DataStructureNode.new("Array", elements))
+
+    func set_or_dict_structure() -> TritiumData.ParseResult:
+        var res = TritiumData.ParseResult.new()
+        var elements = []
+        var data_type = "Set"
+
+        if self.current_token.type != TritiumData.TokenType.CURLY_CLOSE:
+            var element = res.register(self.expression())
+            if res.error or element == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid element in set or dictionary. Ensure all elements are properly defined."))
+
+            if self.current_token.type == TritiumData.TokenType.COLON:
+                data_type = "Dict"
+                return self.dict_structure(element)
+            else:
+                elements.append(element)
+
+            while self.current_token.type == TritiumData.TokenType.COMMA:
+                self.advance()
+                if self.current_token.type == TritiumData.TokenType.CURLY_CLOSE:
+                    break
+                element = res.register(self.expression())
+                if res.error or element == null:
+                    return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid element in set. Ensure all elements are properly defined."))
+                elements.append(element)
+
+        if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to close set."))
+        self.advance()
 
         return res.success(TritiumAST.DataStructureNode.new(data_type, elements))
+
+    func dict_structure(first_key: TritiumAST.ASTNode) -> TritiumData.ParseResult:
+        var res = TritiumData.ParseResult.new()
+        var elements = []
+
+        self.advance()
+        var value = res.register(self.expression())
+        if res.error or value == null:
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid value in dictionary. Ensure the value is properly defined."))
+        elements.append(TritiumAST.Pair.new(first_key, value))
+
+        while self.current_token.type == TritiumData.TokenType.COMMA:
+            self.advance()
+            if self.current_token.type == TritiumData.TokenType.CURLY_CLOSE:
+                break
+
+            var key = res.register(self.expression())
+            if res.error or key == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid key in dictionary. Ensure the key is properly defined."))
+
+            if not self.expect_token(TritiumData.TokenType.COLON):
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ':' after dictionary key."))
+            self.advance()
+
+            value = res.register(self.expression())
+            if res.error or value == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid value in dictionary. Ensure the value is properly defined."))
+            elements.append(TritiumAST.Pair.new(key, value))
+
+        if not self.expect_token(TritiumData.TokenType.CURLY_CLOSE):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected '}' to close dictionary."))
+        self.advance()
+
+        return res.success(TritiumAST.DataStructureNode.new("Dict", elements))
+
+    func tuple_structure() -> TritiumData.ParseResult:
+        var res = TritiumData.ParseResult.new()
+        var elements = []
+
+        if self.current_token.type != TritiumData.TokenType.PAREN:
+            var element = res.register(self.expression())
+            if res.error or element == null:
+                return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid element in tuple. Ensure all elements are properly defined."))
+            elements.append(element)
+
+            while self.current_token.type == TritiumData.TokenType.COMMA:
+                self.advance()
+                element = res.register(self.expression())
+                if res.error or element == null:
+                    return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Invalid element in tuple. Ensure all elements are properly defined."))
+                elements.append(element)
+
+        if not self.expect_token(TritiumData.TokenType.PAREN):
+            return res.failure(TritiumAST.InvalidSyntaxError.new(self.current_token.line, "Expected ')' to close tuple."))
+        self.advance()
+
+        if len(elements) == 1 and self.current_token.type != TritiumData.TokenType.COMMA:
+            return res.success(elements[0])
+
+        return res.success(TritiumAST.DataStructureNode.new("Tuple", elements))
 
     func expression() -> TritiumData.ParseResult:
         var res = TritiumData.ParseResult.new()
@@ -425,7 +488,6 @@ class Parser:
         return res.success(left)
 
     func additive() -> TritiumData.ParseResult:
-        # Handles addition and subtraction ('+', '-')
         var res = TritiumData.ParseResult.new()
         var left = res.register(self.multiplicative())
         if res.error or left == null:
