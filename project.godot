@@ -11,13 +11,17 @@ config_version=5
 [application]
 
 config/name="Examples"
-run/main_scene="res://tritium/editor/TritiumCodeEditor.tscn"
+run/main_scene="res://tritium_editor/editor/TritiumCodeEditor.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 run/max_fps=24
 
 [debug]
 
 gdscript/warnings/unsafe_property_access=1
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/tritium/plugin.cfg")
 
 [rendering]
 

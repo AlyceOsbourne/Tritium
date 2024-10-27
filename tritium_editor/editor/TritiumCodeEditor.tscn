@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3 uid="uid://dlkh6577o2ap4"]
+
+[ext_resource type="PackedScene" uid="uid://dxpr0qf8nvc1i" path="res://tritium_editor/editor/Editor.tscn" id="1_lbevd"]
+[ext_resource type="PackedScene" uid="uid://ce3oqw720nove" path="res://tritium_editor/art/ScreenspaceShaders.tscn" id="5_qyi26"]
+
+[node name="Node2D" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 6
+size_flags_vertical = 6
+
+[node name="Shaders" parent="." instance=ExtResource("5_qyi26")]
+layout_mode = 1
+
+[node name="Editor" parent="." instance=ExtResource("1_lbevd")]
+layout_mode = 1
