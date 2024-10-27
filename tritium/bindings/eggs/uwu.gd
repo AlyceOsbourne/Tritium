@@ -208,5 +208,8 @@ const uwucrew = [
         "Demiqas",
         "Newey",
         "SlugCat",
-        "Lucretios"
+        "Lucretios",
+        "Hackysack",
+        "moazcheese",
+        "demondragonrulez"
     ]

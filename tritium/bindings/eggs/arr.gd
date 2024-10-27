@@ -191,11 +191,9 @@ static func goblinify_string(text: String) -> String:
     return goblin_text
 
 const godoblins = [
-    "Dovos",
     "Tr1bute",
     "LastElf",
     "Melonyyy!",
-    "lagmaister",
     "Ako",
     "Bitlytic",
 ]

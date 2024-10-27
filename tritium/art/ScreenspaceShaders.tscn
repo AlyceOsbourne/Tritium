@@ -1,9 +1,13 @@
-[gd_scene load_steps=8 format=3 uid="uid://ce3oqw720nove"]
+[gd_scene load_steps=14 format=3 uid="uid://ce3oqw720nove"]
 
 [ext_resource type="Shader" path="res://tritium/shader/hexa.gdshader" id="1_0acb5"]
 [ext_resource type="Shader" path="res://tritium/shader/scanline.gdshader" id="2_cct11"]
 [ext_resource type="Shader" path="res://tritium/shader/crack.gdshader" id="3_oj456"]
 [ext_resource type="AudioStream" uid="uid://40qvgppytx66" path="res://tritium/audio/future-high-tech-logo-158838.mp3" id="4_400s8"]
+[ext_resource type="AudioStream" uid="uid://cowmdhvguvv4y" path="res://tritium/audio/factions-244487.mp3" id="5_rb44f"]
+[ext_resource type="AudioStream" uid="uid://cuiprtw0xwupl" path="res://tritium/audio/oppression-244482.mp3" id="6_slque"]
+[ext_resource type="AudioStream" uid="uid://tuyyv8ubgpsb" path="res://tritium/audio/cyberpunk-115452.mp3" id="7_qvlkn"]
+[ext_resource type="AudioStream" uid="uid://buscpbe78ufi3" path="res://tritium/audio/dominion-120599.mp3" id="8_gyten"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_8l61b"]
 shader = ExtResource("1_0acb5")
@@ -53,6 +57,22 @@ shader_parameter/refraction_offset = Vector2(0.2, 0.2)
 shader_parameter/reflection_offset = Vector2(0.5, 0.5)
 shader_parameter/reflection_color = Color(0.172549, 0.172549, 0.172549, 0.34902)
 
+[sub_resource type="AudioStreamPlaylist" id="AudioStreamPlaylist_sxldc"]
+shuffle = true
+stream_count = 4
+stream_0 = ExtResource("7_qvlkn")
+stream_1 = ExtResource("6_slque")
+stream_2 = ExtResource("5_rb44f")
+stream_3 = ExtResource("8_gyten")
+
+[sub_resource type="AudioStreamPlaylist" id="AudioStreamPlaylist_ovjhj"]
+loop = false
+fade_time = 1.0
+stream_count = 3
+stream_0 = ExtResource("4_400s8")
+stream_1 = ExtResource("7_qvlkn")
+stream_2 = SubResource("AudioStreamPlaylist_sxldc")
+
 [node name="Control" type="Control"]
 show_behind_parent = true
 layout_mode = 3
@@ -97,6 +117,6 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
-stream = ExtResource("4_400s8")
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+stream = SubResource("AudioStreamPlaylist_ovjhj")
 autoplay = true

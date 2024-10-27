@@ -72,7 +72,6 @@ class InterpreterResult:
         self.value = value
         self.error = error
 
-
     func is_error() -> bool:
         return error != ""
 

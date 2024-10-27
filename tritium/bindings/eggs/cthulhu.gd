@@ -2,7 +2,10 @@ class_name cthulhubots
 
 const cthulhucrew = [
     "MissCthuleanCoder",
-    "Cthulhu"
+    "Cthulhu",
+    "lagmaister",
+    "Dovos",
+    "Helbeglin"
 ]
 
 static func bind(interpreter_settings: InterpreterSettings):

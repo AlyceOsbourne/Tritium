@@ -1,18 +1,26 @@
 class_name Interpreter extends Resource
 
+static var SENTINAL = Object.new()
+
 class Env:
     @export_storage var settings: InterpreterSettings
     @export_storage var global_scope = {}
     @export_storage var functions = {}
+    @export_storage var recursion_depth = 0
+    @export_storage var max_recursion_depth = 100
 
     func enter_scope(callable: Callable, args: Array = [], local_scope: Dictionary = {}, local_functions: Dictionary = {}):
+        if recursion_depth >= max_recursion_depth:
+            return Interpreter.error("Recursion limit exceeded")
+
+        recursion_depth += 1
+
         var old_scope = global_scope.duplicate(true)
         var old_functions = functions.duplicate(true)
 
         global_scope.merge(local_scope, true)
         functions.merge(local_functions, true)
 
-        # Add any functions passed in args to the scope
         for key in local_scope.keys():
             if local_scope[key] is TritiumAST.FunctionDefNode:
                 functions[key] = local_scope[key]
@@ -21,6 +29,8 @@ class Env:
 
         global_scope = old_scope
         functions = old_functions
+
+        recursion_depth -= 1
 
         return res
 
@@ -78,9 +88,37 @@ static var ops = {
         else:
             return error("Type Error: Both operands must be numbers"),
 
-    "==": func(a, b): return success(typeof(a) == typeof(b) and a == b),
+    "==": func(a, b):
+        match [typeof(a), typeof(b)]:
+            [TYPE_FLOAT, TYPE_FLOAT]:
+                return success(is_equal_approx(a, b))
+            [TYPE_FLOAT, TYPE_INT], [TYPE_INT, TYPE_FLOAT]:
+                return success(is_equal_approx(float(a), float(b)))
+            [TYPE_OBJECT, TYPE_OBJECT]:
+                if a.has_method("_eq") and a._eq(b):
+                    return success(true)
+                if b.has_method("_eqr") and b._eqr(a):
+                    return success(true)
+            [TYPE_OBJECT, _]:
+                if a.has_method("_eq") and a._eq(b):
+                    return success(true)
+            [_, TYPE_OBJECT]:
+                if b.has_method("_eqr") and b._eqr(a):
+                    return success(true)
+            _:
+                if typeof(a) == typeof(b):
+                    return success(a == b)
+        return success(false),
 
-    "!=": func(a, b): return success(typeof(a) == typeof(b) and a != b),
+    "!=": func(a, b):
+        match [typeof(a), typeof(b)]:
+            [TYPE_FLOAT, TYPE_FLOAT]:
+                return success(not is_equal_approx(a, b))
+            [TYPE_FLOAT, TYPE_INT], [TYPE_INT, TYPE_FLOAT]:
+                return success(not is_equal_approx(float(a), float(b)))
+        if typeof(a) == typeof(b):
+            return success(a != b)
+        return success(false),
 
     "<": func(a, b):
         if (typeof(a) in [TYPE_INT, TYPE_FLOAT]) and (typeof(b) in [TYPE_INT, TYPE_FLOAT]) or typeof(a) == typeof(b):
@@ -158,7 +196,14 @@ func call_bound_function(func_name: String, args: Array) -> TritiumData.Interpre
         var arg_result = visit(arg)
         if arg_result.is_error():
             return arg_result
-        evaluated_args.append(arg_result.value)
+        var value = arg_result.value
+        if value is DictionaryType:
+            value = value._dict
+        elif value is ArrayType:
+            value = value._array
+        elif value is Tuple:
+            value = value.elements
+        evaluated_args.append(value)
     return env.settings.call_function(func_name, evaluated_args)
 
 func visit_bin_or_comparison(node: TritiumAST.ASTNode) -> TritiumData.InterpreterResult:
@@ -213,16 +258,16 @@ func visit_var_access(node: TritiumAST.VarAccessNode) -> TritiumData.Interpreter
     return get_variable_value(node.var_name.value)
 
 func get_variable_value(var_name: String) -> TritiumData.InterpreterResult:
+    var v
     if env.settings.bound_properties.has(var_name):
-        return env.settings.get_property(var_name)
-    if env.settings.bound_variables.has(var_name):
-        return env.settings.get_variable(var_name)
-    if env.global_scope.has(var_name):
-        var value = env.global_scope[var_name]
-        if value is TritiumAST.FunctionDefNode:
-            return success(value)
-        return success(env.global_scope[var_name])
-    return error("Undefined variable: %s" % var_name)
+        v = env.settings.get_property(var_name)
+    elif env.settings.bound_variables.has(var_name):
+        v = env.settings.get_variable(var_name)
+    elif env.global_scope.has(var_name):
+        v = success(env.global_scope[var_name])
+    else:
+        return error("Undefined variable: %s" % var_name)
+    return v
 
 func visit_number(node: TritiumAST.NumberNode) -> TritiumData.InterpreterResult:
     return success(float(node.token.value) if node.token.type == TritiumData.TokenType.FLOAT else int(node.token.value))
@@ -232,16 +277,28 @@ func visit_string(node: TritiumAST.StringNode) -> TritiumData.InterpreterResult:
 
 func visit_data_structure(node: TritiumAST.DataStructureNode) -> TritiumData.InterpreterResult:
     var arr = []
-    for element: TritiumAST.ASTNode in node.elements:
-        var result = visit(element)
-        if result.error:
-            return result
-        arr.append(result.value)
-    if node.data_type == "Set":
-        return success(HashSet.new(arr))
-    if node.data_type == "Tuple":
-        return success(Tuple.new(arr))
-    return success(arr)
+    if node.data_type == "Dict":
+        var dict = {}
+        for element: TritiumAST.Pair in node.elements:
+            var key_result = visit(element.left)
+            if key_result.is_error():
+                return key_result
+            var value_result = visit(element.right)
+            if value_result.is_error():
+                return value_result
+            dict[key_result.value] = value_result.value
+        return success(dict)
+    else:
+        for element: TritiumAST.ASTNode in node.elements:
+            var result = visit(element)
+            if result.error:
+                return result
+            arr.append(result.value)
+        if node.data_type == "Set":
+            return success(HashSet.new(arr))
+        if node.data_type == "Tuple":
+            return success(Tuple.new(arr))
+        return success(ArrayType.new(arr))
 
 func visit_if(node: TritiumAST.IfNode) -> TritiumData.InterpreterResult:
     var condition_result = visit(node.condition)
@@ -269,6 +326,8 @@ func visit_for_loop(node: TritiumAST.ForLoopNode) -> TritiumData.InterpreterResu
         return iterable_result
 
     var iterable = iterable_result.value
+    if iterable is ArrayType:
+        iterable = (iterable as ArrayType)._array
     if typeof(iterable) == TYPE_ARRAY:
         for element in iterable:
             var result = execute_block_with_scope(
@@ -405,7 +464,14 @@ func _interpret(ast: TritiumAST.ASTNode, main_args = {}) -> TritiumData.Interpre
     if main_func == null:
         return error("No 'main' function defined")
 
-    return execute_function(main_func, main_args)
+    var ret = execute_function(main_func, main_args)
+    if ret.error:
+        return ret
+    if ret.value is Result:
+        if ret.value.error != null:
+            return TritiumData.InterpreterResult.new(null, str(ret.value.error))
+        return TritiumData.InterpreterResult.new(ret.value.value)
+    return ret
 
 func _to_string() -> String:
     return "NodeVisitor(global_scope: %s, functions: %s)" % [str(env.global_scope), str(env.functions)]
@@ -418,5 +484,5 @@ static func success(value: Variant) -> TritiumData.InterpreterResult:
 
 static func interpret(parse_result: TritiumData.ParseResult, settings: InterpreterSettings, global_vars = {}) -> TritiumData.InterpreterResult:
     if parse_result.error:
-        return error("Parsing error: %s" % parse_result.error)
+        return error("Line %s: %s" % [parse_result.error.line, parse_result.error.error])
     return new(settings)._interpret(parse_result.node, global_vars)

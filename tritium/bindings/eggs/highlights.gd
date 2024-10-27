@@ -11,8 +11,6 @@ static func bind(interpreter_settings: InterpreterSettings):
         interpreter_settings.bind_function("print", func(x, y="\n"): return _print.call(highlight_string(str(x)), y))
 
 
-
-
 static func highlight_string(text: String) -> String:
     var word_colors = [
         {"words": ["error", "failed", "error occurred", "critical", "failure", "danger", "fatal", "abort", "halt", "bug", "crash", "issue", "panic"], "color": "[color=red]"},

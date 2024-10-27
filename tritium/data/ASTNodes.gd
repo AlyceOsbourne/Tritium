@@ -313,7 +313,7 @@ class InvalidSyntaxError extends ASTNode:
 
     func _init(line: int, error: String):
         self.line = line
-        self.error = "Syntax error on line %d: %s" % [line, error]
+        self.error = error
 
 class DataStructureNode extends ASTNode:
     func _to_string() -> String:
@@ -333,7 +333,7 @@ class DataStructureNode extends ASTNode:
         self.data_type = data_type
         self.elements = elements
 
-class Pair:
+class Pair extends ASTNode:
     var left: ASTNode
     var right: ASTNode
 
